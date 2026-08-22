@@ -1,12 +1,47 @@
 import { useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  CheckCircle,
+  CircleNotch,
+  FloppyDisk,
+  Table,
+  TreeStructure,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import Navbar from '../components/layout/Navbar';
 import DbmlEditor from '../components/editor/DbmlEditor';
 import DiagramCanvas from '../components/editor/DiagramCanvas';
+import SplitPane from '../components/editor/SplitPane';
 import { useProjectStore } from '../store/useProjectStore';
 
 const PARSE_DEBOUNCE_MS = 400;
 const AUTOSAVE_IDLE_MS = 3000;
+
+function SaveState({ saving, dirty, lastSavedAt }) {
+  if (saving) {
+    return (
+      <span className="state state--busy">
+        <CircleNotch size={13} weight="bold" className="spin" />
+        Saving
+      </span>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="state state--dirty">
+        <span className="state__dot" aria-hidden="true" />
+        Unsaved
+      </span>
+    );
+  }
+  return (
+    <span className="state">
+      <CheckCircle size={13} weight="fill" />
+      {lastSavedAt ? 'Saved' : 'Up to date'}
+    </span>
+  );
+}
 
 export default function ProjectEditorPage() {
   const { id } = useParams();
@@ -80,7 +115,10 @@ export default function ProjectEditorPage() {
     return (
       <div className="app-shell">
         <Navbar />
-        <div className="page-center muted">Loading project…</div>
+        <div className="center">
+          <CircleNotch size={20} weight="bold" className="spin" />
+          <p>Opening project</p>
+        </div>
       </div>
     );
   }
@@ -89,9 +127,13 @@ export default function ProjectEditorPage() {
     return (
       <div className="app-shell">
         <Navbar />
-        <div className="page-center">
-          <div className="alert alert--error">{loadError}</div>
-          <Link to="/" className="btn btn--ghost">
+        <div className="center">
+          <span className="blank__icon">
+            <WarningCircle size={20} weight="fill" />
+          </span>
+          <h2>{loadError}</h2>
+          <Link to="/" className="btn">
+            <ArrowLeft size={15} weight="bold" />
             Back to projects
           </Link>
         </div>
@@ -102,40 +144,52 @@ export default function ProjectEditorPage() {
   return (
     <div className="app-shell">
       <Navbar>
-        <span className="editor-title">{project?.name}</span>
-        <span className="editor-stats">
-          {nodes.length} {nodes.length === 1 ? 'table' : 'tables'} · {edges.length}{' '}
-          {edges.length === 1 ? 'relation' : 'relations'}
+        <Link to="/" className="back" title="Back to projects">
+          <ArrowLeft size={15} weight="bold" />
+        </Link>
+
+        <h1 className="doc-title" title={project?.name}>
+          {project?.name}
+        </h1>
+
+        <span className="doc-stats">
+          <span title="Tables">
+            <Table size={12} weight="bold" />
+            {nodes.length}
+          </span>
+          <span title="Relationships">
+            <TreeStructure size={12} weight="bold" />
+            {edges.length}
+          </span>
         </span>
-        <span className={`save-state${dirty ? ' is-dirty' : ''}`}>
-          {saving
-            ? 'Saving…'
-            : dirty
-              ? 'Unsaved changes'
-              : lastSavedAt
-                ? 'All changes saved'
-                : 'Saved'}
-        </span>
+
+        <span className="navbar__spacer" />
+
+        <SaveState saving={saving} dirty={dirty} lastSavedAt={lastSavedAt} />
+
         <button
           type="button"
           className="btn btn--primary btn--sm"
           onClick={save}
           disabled={saving || !dirty}
+          title="Save (Ctrl+S)"
         >
+          <FloppyDisk size={14} weight="bold" />
           Save
         </button>
       </Navbar>
 
-      {saveError && <div className="alert alert--error alert--bar">{saveError}</div>}
+      {saveError && (
+        <p className="alert alert--error alert--bar" role="alert">
+          <WarningCircle size={15} weight="fill" />
+          {saveError}
+        </p>
+      )}
 
-      <div className="split">
-        <section className="split__left">
-          <DbmlEditor value={dbml} onChange={setDbml} parseError={parseError} />
-        </section>
-        <section className="split__right">
-          <DiagramCanvas />
-        </section>
-      </div>
+      <SplitPane
+        left={<DbmlEditor value={dbml} onChange={setDbml} parseError={parseError} />}
+        right={<DiagramCanvas />}
+      />
     </div>
   );
 }

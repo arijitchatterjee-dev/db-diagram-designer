@@ -1,43 +1,61 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  MagnifyingGlass,
+  Plus,
+  Table,
+  Trash,
+  WarningCircle,
+  X,
+} from '@phosphor-icons/react';
 import Navbar from '../components/layout/Navbar';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
-
-function formatDate(value) {
-  if (!value) return '';
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
+import { absoluteTime, relativeTime } from '../utils/formatTime';
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '' });
+  const [query, setQuery] = useState('');
+
   const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '' });
+  const [creating, setCreating] = useState(false);
+
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const nameInput = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
     projectApi
       .listProjects()
-      .then((list) => {
-        if (!cancelled) setProjects(list);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(apiErrorMessage(err, 'Could not load your projects'));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .then((list) => !cancelled && setProjects(list))
+      .catch((err) => !cancelled && setError(apiErrorMessage(err, 'Could not load your projects')))
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (showForm) nameInput.current?.focus();
+  }, [showForm]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q)
+    );
+  }, [projects, query]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -54,17 +72,16 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleDelete(project) {
-    const confirmed = window.confirm(
-      `Delete "${project.name}"? This permanently removes its schema and cannot be undone.`
-    );
-    if (!confirmed) return;
-
+  async function handleDelete() {
+    setDeleting(true);
     try {
-      await projectApi.deleteProject(project._id);
-      setProjects((list) => list.filter((p) => p._id !== project._id));
+      await projectApi.deleteProject(pendingDelete._id);
+      setProjects((list) => list.filter((p) => p._id !== pendingDelete._id));
+      setPendingDelete(null);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not delete the project'));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -72,82 +89,167 @@ export default function DashboardPage() {
     <div className="app-shell">
       <Navbar />
 
-      <main className="dashboard">
-        <div className="dashboard__head">
+      <main className="dash">
+        <header className="dash__head">
           <div>
-            <h1>Your projects</h1>
-            <p className="muted">Only you can see these.</p>
+            <h1>Projects</h1>
+            <p className="dash__sub">
+              {loading
+                ? 'Loading your schemas'
+                : `${projects.length} ${projects.length === 1 ? 'schema' : 'schemas'}, visible only to you`}
+            </p>
           </div>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => setShowForm((v) => !v)}
-          >
-            {showForm ? 'Cancel' : '+ New project'}
-          </button>
-        </div>
 
-        {error && <div className="alert alert--error">{error}</div>}
+          <div className="dash__actions">
+            {projects.length > 3 && (
+              <div className="search">
+                <MagnifyingGlass size={14} weight="bold" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter projects"
+                  aria-label="Filter projects"
+                />
+                {query && (
+                  <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
+                    <X size={12} weight="bold" />
+                  </button>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setShowForm((v) => !v)}
+            >
+              {showForm ? <X size={15} weight="bold" /> : <Plus size={15} weight="bold" />}
+              {showForm ? 'Cancel' : 'New project'}
+            </button>
+          </div>
+        </header>
+
+        {error && (
+          <p className="alert alert--error" role="alert">
+            <WarningCircle size={15} weight="fill" />
+            {error}
+          </p>
+        )}
 
         {showForm && (
-          <form className="new-project" onSubmit={handleCreate}>
-            <label className="field">
-              <span>Name</span>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Blog schema"
-                autoFocus
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Description</span>
-              <input
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Optional"
-              />
-            </label>
+          <form className="creator" onSubmit={handleCreate}>
+            <div className="field">
+              <label htmlFor="new-name">Project name</label>
+              <div className="field__wrap">
+                <input
+                  id="new-name"
+                  ref={nameInput}
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Blog schema"
+                  required
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="new-desc">Description</label>
+              <div className="field__wrap">
+                <input
+                  id="new-desc"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
             <button type="submit" className="btn btn--primary" disabled={creating}>
-              {creating ? 'Creating…' : 'Create'}
+              {creating ? 'Creating' : 'Create project'}
             </button>
           </form>
         )}
 
-        {loading && <p className="muted">Loading…</p>}
-
-        {!loading && projects.length === 0 && (
-          <div className="empty-state">
-            <h2>Nothing here yet</h2>
-            <p className="muted">
-              Create your first project — it starts with a small sample schema so the
-              canvas isn&apos;t blank.
-            </p>
-          </div>
+        {loading && (
+          <ul className="cards" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="card card--skeleton">
+                <span className="sk sk--title" />
+                <span className="sk sk--line" />
+                <span className="sk sk--meta" />
+              </li>
+            ))}
+          </ul>
         )}
 
-        <ul className="project-grid">
-          {projects.map((project) => (
-            <li key={project._id} className="project-card">
-              <Link to={`/project/${project._id}`} className="project-card__link">
-                <h3>{project.name}</h3>
-                {project.description && (
-                  <p className="project-card__desc">{project.description}</p>
-                )}
-                <p className="project-card__meta">Updated {formatDate(project.updatedAt)}</p>
-              </Link>
-              <button
-                type="button"
-                className="btn btn--danger btn--sm"
-                onClick={() => handleDelete(project)}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
+        {!loading && projects.length === 0 && (
+          <section className="blank">
+            <span className="blank__icon">
+              <Table size={22} weight="duotone" />
+            </span>
+            <h2>No projects yet</h2>
+            <p>
+              A new project opens with a small sample schema, so there is something on the
+              canvas from the first second.
+            </p>
+            <button type="button" className="btn btn--primary" onClick={() => setShowForm(true)}>
+              <Plus size={15} weight="bold" />
+              Create your first project
+            </button>
+          </section>
+        )}
+
+        {!loading && projects.length > 0 && visible.length === 0 && (
+          <p className="dash__none">Nothing matches &ldquo;{query}&rdquo;.</p>
+        )}
+
+        {visible.length > 0 && (
+          <ul className="cards">
+            {visible.map((project) => (
+              <li key={project._id} className="card">
+                <Link to={`/project/${project._id}`} className="card__link">
+                  <h3 className="card__title">{project.name}</h3>
+                  {project.description ? (
+                    <p className="card__desc">{project.description}</p>
+                  ) : (
+                    <p className="card__desc card__desc--empty">No description</p>
+                  )}
+
+                  <p className="card__meta">
+                    <span className="chip">
+                      <Table size={11} weight="bold" />
+                      {project.tableCount ?? 0} {project.tableCount === 1 ? 'table' : 'tables'}
+                    </span>
+                    <time dateTime={project.updatedAt} title={absoluteTime(project.updatedAt)}>
+                      {relativeTime(project.updatedAt)}
+                    </time>
+                  </p>
+
+                  <span className="card__go" aria-hidden="true">
+                    <ArrowRight size={14} weight="bold" />
+                  </span>
+                </Link>
+
+                <button
+                  type="button"
+                  className="card__delete"
+                  onClick={() => setPendingDelete(project)}
+                  aria-label={`Delete ${project.name}`}
+                  title="Delete project"
+                >
+                  <Trash size={14} weight="bold" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        busy={deleting}
+        title={`Delete ${pendingDelete?.name ?? ''}?`}
+        body="This removes the schema and its layout for good. There is no undo."
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

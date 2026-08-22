@@ -68,6 +68,9 @@ function handleSides(sourcePos, targetPos) {
     : { source: 'left', target: 'right' };
 }
 
+export const EDGE_IDLE = '#46536b';
+export const EDGE_ACTIVE = '#f5a524';
+
 function buildEdge(ref, positions) {
   const sides = handleSides(positions[ref.source.table], positions[ref.target.table]);
   const sourceColumn = ref.source.columns[0];
@@ -82,44 +85,34 @@ function buildEdge(ref, positions) {
     sourceHandle: `${sourceColumn}__source__${sides.source}`,
     targetHandle: `${targetColumn}__target__${sides.target}`,
     type: 'smoothstep',
+    pathOptions: { borderRadius: 14 },
     label: style.label,
-    labelBgPadding: [6, 3],
-    labelBgBorderRadius: 4,
-    labelBgStyle: { fill: '#1b2333', stroke: '#334155' },
-    labelStyle: { fill: '#94a3b8', fontSize: 10, fontWeight: 600 },
+    labelShowBg: false,
+    labelStyle: {
+      fill: '#7c8699',
+      fontSize: 10,
+      fontWeight: 600,
+      fontFamily: "'Geist Mono Variable', ui-monospace, monospace",
+    },
     animated: false,
-    style: { stroke: style.stroke, strokeWidth: 1.8, strokeDasharray: style.dash },
+    style: { stroke: EDGE_IDLE, strokeWidth: 1.6, strokeDasharray: style.dash },
     markerEnd: style.markerEnd
-      ? { type: MarkerType.ArrowClosed, width: 16, height: 16, color: style.stroke }
+      ? { type: MarkerType.ArrowClosed, width: 14, height: 14, color: EDGE_IDLE }
       : undefined,
     markerStart: style.markerStart
-      ? { type: MarkerType.ArrowClosed, width: 16, height: 16, color: style.stroke }
+      ? { type: MarkerType.ArrowClosed, width: 14, height: 14, color: EDGE_IDLE }
       : undefined,
-    data: { relationType: ref.type },
+    data: { relationType: ref.type, dash: style.dash },
   };
 }
 
-// One visual language per DBML relationship operator.
+/**
+ * Cardinality is carried by line treatment and a small label, not by colour.
+ * Colour is reserved for state: every relationship is the same quiet slate
+ * until you select a table, and then its own relationships light up.
+ */
 const STYLES = {
-  'one-to-many': {
-    label: '1:N',
-    stroke: '#60a5fa',
-    dash: undefined,
-    markerEnd: true,
-    markerStart: false,
-  },
-  'one-to-one': {
-    label: '1:1',
-    stroke: '#34d399',
-    dash: undefined,
-    markerEnd: false,
-    markerStart: false,
-  },
-  'many-to-many': {
-    label: 'N:N',
-    stroke: '#f472b6',
-    dash: '6 4',
-    markerEnd: true,
-    markerStart: true,
-  },
+  'one-to-many': { label: '1:N', dash: undefined, markerEnd: true, markerStart: false },
+  'one-to-one': { label: '1:1', dash: undefined, markerEnd: false, markerStart: false },
+  'many-to-many': { label: 'N:N', dash: '5 4', markerEnd: true, markerStart: true },
 };

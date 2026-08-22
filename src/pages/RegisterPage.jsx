@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { ArrowRight, WarningCircle } from '@phosphor-icons/react';
+import AuthLayout from '../components/layout/AuthLayout';
+import PasswordField from '../components/ui/PasswordField';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiErrorMessage } from '../api/axiosInstance';
 
@@ -14,9 +17,7 @@ export default function RegisterPage() {
 
   if (user) return <Navigate to="/" replace />;
 
-  function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-  }
+  const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -38,56 +39,64 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <h1 className="auth-card__title">Create your account</h1>
-        <p className="auth-card__sub">Your projects stay private to you.</p>
+    <AuthLayout title="Create your account" subtitle="Takes a moment. Your projects stay yours.">
+      <form onSubmit={handleSubmit} noValidate>
+        {error && (
+          <p className="alert alert--error" role="alert">
+            <WarningCircle size={15} weight="fill" />
+            {error}
+          </p>
+        )}
 
-        {error && <div className="alert alert--error">{error}</div>}
+        <div className="field">
+          <label htmlFor="reg-username">Username</label>
+          <div className="field__wrap">
+            <input
+              id="reg-username"
+              value={form.username}
+              onChange={update('username')}
+              autoComplete="username"
+              placeholder="How you want to be shown"
+              minLength={3}
+              required
+            />
+          </div>
+        </div>
 
-        <label className="field">
-          <span>Username</span>
-          <input
-            value={form.username}
-            onChange={update('username')}
-            autoComplete="username"
-            minLength={3}
-            required
-          />
-        </label>
+        <div className="field">
+          <label htmlFor="reg-email">Email</label>
+          <div className="field__wrap">
+            <input
+              id="reg-email"
+              type="email"
+              value={form.email}
+              onChange={update('email')}
+              autoComplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+        </div>
 
-        <label className="field">
-          <span>Email</span>
-          <input
-            type="email"
-            value={form.email}
-            onChange={update('email')}
-            autoComplete="email"
-            required
-          />
-        </label>
-
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={form.password}
-            onChange={update('password')}
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
-          <small className="field__hint">At least 8 characters.</small>
-        </label>
+        <PasswordField
+          id="reg-password"
+          label="Password"
+          hint="At least 8 characters."
+          value={form.password}
+          onChange={update('password')}
+          autoComplete="new-password"
+          minLength={8}
+        />
 
         <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
-          {busy ? 'Creating…' : 'Create account'}
+          {busy ? 'Creating account' : 'Create account'}
+          {!busy && <ArrowRight size={15} weight="bold" />}
         </button>
-
-        <p className="auth-card__foot">
-          Already registered? <Link to="/login">Sign in</Link>
-        </p>
       </form>
-    </div>
+
+      <p className="auth__foot">
+        Already registered? <Link to="/login">Sign in</Link>
+      </p>
+    </AuthLayout>
   );
 }
