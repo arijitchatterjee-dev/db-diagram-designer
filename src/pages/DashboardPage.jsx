@@ -5,21 +5,29 @@ import {
   MagnifyingGlass,
   Plus,
   Table,
-  Trash,
   WarningCircle,
   X,
 } from '@phosphor-icons/react';
 import Navbar from '../components/layout/Navbar';
+import CardMenu from '../components/ui/CardMenu';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import ProjectDetailsDialog from '../components/ui/ProjectDetailsDialog';
 import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
 import { absoluteTime, relativeTime } from '../utils/formatTime';
+
+const SORTS = {
+  updated: { label: 'Last edited', compare: (a, b) => b.updatedAt.localeCompare(a.updatedAt) },
+  name: { label: 'Name', compare: (a, b) => a.name.localeCompare(b.name) },
+  tables: { label: 'Table count', compare: (a, b) => (b.tableCount ?? 0) - (a.tableCount ?? 0) },
+};
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('updated');
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', description: '' });
@@ -27,6 +35,10 @@ export default function DashboardPage() {
 
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [editing, setEditing] = useState(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState(null);
 
   const nameInput = useRef(null);
   const navigate = useNavigate();
@@ -49,13 +61,15 @@ export default function DashboardPage() {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.description || '').toLowerCase().includes(q)
-    );
-  }, [projects, query]);
+    const matched = q
+      ? projects.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            (p.description || '').toLowerCase().includes(q)
+        )
+      : projects;
+    return [...matched].sort(SORTS[sort].compare);
+  }, [projects, query, sort]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -69,6 +83,40 @@ export default function DashboardPage() {
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not create the project'));
       setCreating(false);
+    }
+  }
+
+  async function handleDuplicate(project) {
+    setError(null);
+    try {
+      const copy = await projectApi.duplicateProject(project._id);
+      // The API returns the full copy; the list only needs the card fields.
+      setProjects((list) => [
+        { ...copy, tableCount: project.tableCount },
+        ...list,
+      ]);
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not duplicate the project'));
+    }
+  }
+
+  async function handleSaveDetails(changes) {
+    setSavingDetails(true);
+    setDetailsError(null);
+    try {
+      const updated = await projectApi.updateProject(editing._id, changes);
+      setProjects((list) =>
+        list.map((p) =>
+          p._id === updated._id
+            ? { ...p, name: updated.name, description: updated.description, updatedAt: updated.updatedAt }
+            : p
+        )
+      );
+      setEditing(null);
+    } catch (err) {
+      setDetailsError(apiErrorMessage(err, 'Could not save the changes'));
+    } finally {
+      setSavingDetails(false);
     }
   }
 
@@ -102,20 +150,34 @@ export default function DashboardPage() {
 
           <div className="dash__actions">
             {projects.length > 3 && (
-              <div className="search">
-                <MagnifyingGlass size={14} weight="bold" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Filter projects"
-                  aria-label="Filter projects"
-                />
-                {query && (
-                  <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
-                    <X size={12} weight="bold" />
-                  </button>
-                )}
-              </div>
+              <>
+                <div className="search">
+                  <MagnifyingGlass size={14} weight="bold" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter projects"
+                    aria-label="Filter projects"
+                  />
+                  {query && (
+                    <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
+                      <X size={12} weight="bold" />
+                    </button>
+                  )}
+                </div>
+                <select
+                  className="select select--inline"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  aria-label="Sort projects"
+                >
+                  {Object.entries(SORTS).map(([id, option]) => (
+                    <option key={id} value={id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </>
             )}
             <button
               type="button"
@@ -227,20 +289,30 @@ export default function DashboardPage() {
                   </span>
                 </Link>
 
-                <button
-                  type="button"
-                  className="card__delete"
-                  onClick={() => setPendingDelete(project)}
-                  aria-label={`Delete ${project.name}`}
-                  title="Delete project"
-                >
-                  <Trash size={14} weight="bold" />
-                </button>
+                <CardMenu
+                  label={project.name}
+                  onRename={() => {
+                    setDetailsError(null);
+                    setEditing(project);
+                  }}
+                  onDuplicate={() => handleDuplicate(project)}
+                  onDelete={() => setPendingDelete(project)}
+                />
               </li>
             ))}
           </ul>
         )}
       </main>
+
+      {editing && (
+        <ProjectDetailsDialog
+          project={editing}
+          busy={savingDetails}
+          error={detailsError}
+          onSave={handleSaveDetails}
+          onCancel={() => setEditing(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}

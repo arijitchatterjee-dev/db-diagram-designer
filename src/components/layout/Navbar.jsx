@@ -1,28 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CaretDown, Database, SignOut } from '@phosphor-icons/react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useDismissable } from '../../utils/useDismissable';
 
 export default function Navbar({ children }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const menu = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onClick = (e) => {
-      if (!menu.current?.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', onClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  const menu = useDismissable(open, useCallback(() => setOpen(false), []));
 
   async function handleLogout() {
     await logout();

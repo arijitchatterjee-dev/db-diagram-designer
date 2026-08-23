@@ -12,9 +12,15 @@ const initialState = {
 
   dbml: '',
   layout: {},
+  // Free-floating annotations: [{ id, x, y, text }]. Not part of the DBML —
+  // the language has no syntax for them — so they travel beside it.
+  notes: [],
 
   nodes: [],
   edges: [],
+  // TableGroup membership. Not nodes: the canvas derives each backdrop from
+  // where its member tables currently sit.
+  groups: [],
 
   // Null while the current text parses cleanly; otherwise { message, line }.
   // The diagram keeps rendering the last good parse either way.
@@ -27,6 +33,25 @@ const initialState = {
   saveError: null,
   lastSavedAt: null,
 };
+
+/**
+ * Drops saved positions for tables the schema no longer has, so deleting or
+ * renaming tables doesn't leave the layout map growing forever.
+ *
+ * Only safe when the diagram on screen was built from exactly the text being
+ * saved: if the current text hasn't parsed yet, `nodes` describes an older
+ * schema and pruning against it would throw away live positions.
+ */
+function pruneLayout({ dbml, lastParsedDbml, layout, nodes }) {
+  if (dbml !== lastParsedDbml) return layout;
+
+  const live = new Set(nodes.map((node) => node.id));
+  const kept = {};
+  for (const [key, position] of Object.entries(layout)) {
+    if (live.has(key)) kept[key] = position;
+  }
+  return kept;
+}
 
 export const useProjectStore = create((set, get) => ({
   ...initialState,
@@ -43,6 +68,7 @@ export const useProjectStore = create((set, get) => ({
         project,
         dbml: project.dbml || '',
         layout: project.layout || {},
+        notes: project.notes || [],
         loading: false,
       });
       get().syncDiagram();
@@ -53,6 +79,16 @@ export const useProjectStore = create((set, get) => ({
 
   setDbml(dbml) {
     set({ dbml, dirty: true });
+  },
+
+  /**
+   * Swaps the whole document out — used by the SQL importer. The saved layout
+   * goes with it: positions were chosen for tables that no longer exist, and
+   * keeping them would drop an imported table onto an unrelated spot.
+   */
+  replaceDbml(dbml) {
+    set({ dbml, layout: {}, nodes: [], edges: [], groups: [], dirty: true });
+    get().syncDiagram();
   },
 
   setName(name) {
@@ -92,7 +128,7 @@ export const useProjectStore = create((set, get) => ({
       previousPositions[node.id] = node.position;
     });
 
-    const { nodes: nextNodes, edges: nextEdges } = buildGraph(
+    const { nodes: nextNodes, edges: nextEdges, groups } = buildGraph(
       result.schema,
       layout,
       previousPositions
@@ -101,6 +137,7 @@ export const useProjectStore = create((set, get) => ({
     set({
       nodes: nextNodes,
       edges: nextEdges,
+      groups,
       parseError: null,
       lastParsedDbml: parsedText,
     });
@@ -111,12 +148,57 @@ export const useProjectStore = create((set, get) => ({
   },
 
   // Dragging is the only thing that writes into `layout` — that map is purely
-  // the record of positions the user chose by hand.
+  // the record of positions the user chose by hand. Notes keep their position
+  // on themselves instead, so they take the other branch.
   onNodeDragStop(_event, node) {
+    if (node.type === 'note') {
+      get().moveNote(node.id, node.position);
+      return;
+    }
     set((s) => ({
       layout: { ...s.layout, [node.id]: { x: node.position.x, y: node.position.y } },
       dirty: true,
     }));
+  },
+
+  addNote(position) {
+    const id =
+      globalThis.crypto?.randomUUID?.() ?? `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    set((s) => ({
+      notes: [...s.notes, { id, x: position.x, y: position.y, text: '' }],
+      dirty: true,
+    }));
+    return id;
+  },
+
+  // Called on every drag frame as well as on drop, so it deliberately does not
+  // touch `dirty` — onNodeDragStop marks the change once the drag ends.
+  dragNote(id, position) {
+    set((s) => ({
+      notes: s.notes.map((note) =>
+        note.id === id ? { ...note, x: position.x, y: position.y } : note
+      ),
+    }));
+  },
+
+  moveNote(id, position) {
+    set((s) => ({
+      notes: s.notes.map((note) =>
+        note.id === id ? { ...note, x: position.x, y: position.y } : note
+      ),
+      dirty: true,
+    }));
+  },
+
+  setNoteText(id, text) {
+    set((s) => ({
+      notes: s.notes.map((note) => (note.id === id ? { ...note, text } : note)),
+      dirty: true,
+    }));
+  },
+
+  removeNote(id) {
+    set((s) => ({ notes: s.notes.filter((note) => note.id !== id), dirty: true }));
   },
 
   async autoLayoutAll() {
@@ -126,10 +208,11 @@ export const useProjectStore = create((set, get) => ({
 
     // Clearing `layout` drops every manual position, so buildGraph falls back
     // to a fresh dagre pass for the whole graph.
-    const { nodes, edges } = buildGraph(result.schema, {}, {});
+    const { nodes, edges, groups } = buildGraph(result.schema, {}, {});
     set({
       nodes,
       edges,
+      groups,
       layout: {},
       dirty: true,
       parseError: null,
@@ -138,8 +221,10 @@ export const useProjectStore = create((set, get) => ({
   },
 
   async save() {
-    const { project, dbml, layout, saving } = get();
+    const { project, dbml, notes, saving } = get();
     if (!project || saving) return;
+
+    const pruned = pruneLayout(get());
 
     set({ saving: true, saveError: null });
     try {
@@ -147,10 +232,12 @@ export const useProjectStore = create((set, get) => ({
         name: project.name,
         description: project.description,
         dbml,
-        layout,
+        layout: pruned,
+        notes,
       });
       set({
         project: updated,
+        layout: pruned,
         saving: false,
         dirty: false,
         lastSavedAt: new Date().toISOString(),

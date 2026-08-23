@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -12,6 +12,9 @@ import {
 import Navbar from '../components/layout/Navbar';
 import DbmlEditor from '../components/editor/DbmlEditor';
 import DiagramCanvas from '../components/editor/DiagramCanvas';
+import EditableTitle from '../components/editor/EditableTitle';
+import ImportDialog from '../components/editor/ImportDialog';
+import SchemaMenu from '../components/editor/SchemaMenu';
 import SplitPane from '../components/editor/SplitPane';
 import { useProjectStore } from '../store/useProjectStore';
 
@@ -51,6 +54,7 @@ export default function ProjectEditorPage() {
   const loadError = useProjectStore((s) => s.loadError);
   const dbml = useProjectStore((s) => s.dbml);
   const layout = useProjectStore((s) => s.layout);
+  const notes = useProjectStore((s) => s.notes);
   const parseError = useProjectStore((s) => s.parseError);
   const dirty = useProjectStore((s) => s.dirty);
   const saving = useProjectStore((s) => s.saving);
@@ -60,10 +64,14 @@ export default function ProjectEditorPage() {
   const edges = useProjectStore((s) => s.edges);
 
   const setDbml = useProjectStore((s) => s.setDbml);
+  const setName = useProjectStore((s) => s.setName);
+  const replaceDbml = useProjectStore((s) => s.replaceDbml);
   const syncDiagram = useProjectStore((s) => s.syncDiagram);
   const save = useProjectStore((s) => s.save);
   const loadProject = useProjectStore((s) => s.loadProject);
   const reset = useProjectStore((s) => s.reset);
+
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     loadProject(id);
@@ -81,12 +89,13 @@ export default function ProjectEditorPage() {
     return () => clearTimeout(timer);
   }, [dbml, syncDiagram]);
 
-  // Autosave once editing has been idle for a moment.
+  // Autosave once editing has been idle for a moment. Every saved field is a
+  // dependency so that each edit restarts the idle timer, not just the first.
   useEffect(() => {
     if (!dirty || saving) return undefined;
     const timer = setTimeout(save, AUTOSAVE_IDLE_MS);
     return () => clearTimeout(timer);
-  }, [dirty, saving, dbml, layout, save]);
+  }, [dirty, saving, dbml, layout, notes, save]);
 
   // Ctrl/Cmd+S saves without waiting for the autosave timer.
   useEffect(() => {
@@ -148,9 +157,7 @@ export default function ProjectEditorPage() {
           <ArrowLeft size={15} weight="bold" />
         </Link>
 
-        <h1 className="doc-title" title={project?.name}>
-          {project?.name}
-        </h1>
+        <EditableTitle value={project?.name ?? ''} onChange={setName} />
 
         <span className="doc-stats">
           <span title="Tables">
@@ -167,6 +174,8 @@ export default function ProjectEditorPage() {
 
         <SaveState saving={saving} dirty={dirty} lastSavedAt={lastSavedAt} />
 
+        <SchemaMenu onImport={() => setImporting(true)} />
+
         <button
           type="button"
           className="btn btn--primary btn--sm"
@@ -178,6 +187,17 @@ export default function ProjectEditorPage() {
           Save
         </button>
       </Navbar>
+
+      {importing && (
+        <ImportDialog
+          hasExistingSchema={Boolean(dbml.trim())}
+          onCancel={() => setImporting(false)}
+          onImported={(imported) => {
+            replaceDbml(imported);
+            setImporting(false);
+          }}
+        />
+      )}
 
       {saveError && (
         <p className="alert alert--error alert--bar" role="alert">

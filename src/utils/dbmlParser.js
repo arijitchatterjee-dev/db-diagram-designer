@@ -15,12 +15,12 @@ export function loadParser() {
   return loadPromise;
 }
 
-const EMPTY_SCHEMA = { tables: [], refs: [], enums: [] };
+const EMPTY_SCHEMA = { tables: [], refs: [], enums: [], groups: [], project: null };
 
 /**
  * Wraps @dbml/core so the rest of the app never touches the raw AST and never
  * sees a thrown parse error. Always resolves to a result object:
- *   { ok: true,  schema: { tables, refs, enums } }
+ *   { ok: true,  schema: { tables, refs, enums, groups, project } }
  *   { ok: false, error: { message, line, column } }
  */
 export async function parseDbml(source) {
@@ -47,6 +47,7 @@ function normalize(database) {
   const tables = [];
   const refs = [];
   const enums = [];
+  const groups = [];
 
   (database.schemas || []).forEach((schema) => {
     (schema.enums || []).forEach((e) => {
@@ -56,12 +57,22 @@ function normalize(database) {
       });
     });
 
+    (schema.tableGroups || []).forEach((group) => {
+      groups.push({
+        name: group.name,
+        note: noteText(group.note),
+        tables: (group.tables || []).map((t) => t.name),
+      });
+    });
+
     (schema.tables || []).forEach((table) => {
       tables.push({
         name: table.name,
         schemaName: schema.name,
         note: noteText(table.note),
         headerColor: table.headerColor || null,
+        groupName: table.group?.name || null,
+        indexes: (table.indexes || []).map(indexOf),
         fields: (table.fields || []).map((field) => ({
           name: field.name,
           type: field.type?.type_name || 'unknown',
@@ -96,7 +107,39 @@ function normalize(database) {
     });
   });
 
-  return { tables, refs, enums };
+  return {
+    tables,
+    refs,
+    enums,
+    groups,
+    // The optional `Project { }` block. Null when the document doesn't have one.
+    project: database.name
+      ? {
+          name: database.name,
+          note: noteText(database.note),
+          databaseType: database.databaseType || null,
+        }
+      : null,
+  };
+}
+
+/**
+ * An `indexes { }` entry. A column can be a plain name or a backtick
+ * expression like `` `lower(email)` `` — both arrive as a `value`, with `type`
+ * telling them apart, so expressions get shown as the expression they are.
+ */
+function indexOf(index) {
+  const columns = (index.columns || []).map((column) =>
+    column.type === 'expression' ? `(${column.value})` : column.value
+  );
+
+  return {
+    name: index.name || null,
+    columns,
+    unique: Boolean(index.unique),
+    pk: Boolean(index.pk),
+    type: index.type || null, // btree / hash / gin ...
+  };
 }
 
 function endpointOf(endpoint) {

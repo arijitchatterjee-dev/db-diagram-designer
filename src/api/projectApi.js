@@ -20,6 +20,11 @@ export async function updateProject(id, payload) {
   return data.project;
 }
 
+export async function duplicateProject(id) {
+  const { data } = await api.post(`/projects/${id}/duplicate`);
+  return data.project;
+}
+
 export async function deleteProject(id) {
   await api.delete(`/projects/${id}`);
 }
