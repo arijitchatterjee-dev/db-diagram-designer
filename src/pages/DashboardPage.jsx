@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  Compass,
   MagnifyingGlass,
   Plus,
   Table,
@@ -15,6 +16,12 @@ import ProjectDetailsDialog from '../components/ui/ProjectDetailsDialog';
 import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
 import { absoluteTime, relativeTime } from '../utils/formatTime';
+
+const PLAN_STATUS_LABEL = {
+  draft: 'Draft',
+  planned: 'Planned',
+  building: 'Building',
+};
 
 const SORTS = {
   updated: { label: 'Last edited', compare: (a, b) => b.updatedAt.localeCompare(a.updatedAt) },
@@ -279,6 +286,12 @@ export default function DashboardPage() {
                       <Table size={11} weight="bold" />
                       {project.tableCount ?? 0} {project.tableCount === 1 ? 'table' : 'tables'}
                     </span>
+                    {project.hasPlan && (
+                      <span className={`chip chip--plan is-${project.planStatus}`}>
+                        <Compass size={11} weight="bold" />
+                        {PLAN_STATUS_LABEL[project.planStatus] ?? 'Plan'}
+                      </span>
+                    )}
                     <time dateTime={project.updatedAt} title={absoluteTime(project.updatedAt)}>
                       {relativeTime(project.updatedAt)}
                     </time>
@@ -287,6 +300,12 @@ export default function DashboardPage() {
                   <span className="card__go" aria-hidden="true">
                     <ArrowRight size={14} weight="bold" />
                   </span>
+                </Link>
+
+                {/* Outside the card link: a nested anchor would be invalid markup. */}
+                <Link to={`/project/${project._id}/plan`} className="card__plan">
+                  <Compass size={12} weight="bold" />
+                  {project.hasPlan ? 'Open plan' : 'Plan it'}
                 </Link>
 
                 <CardMenu

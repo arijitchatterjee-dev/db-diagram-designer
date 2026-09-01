@@ -1,0 +1,197 @@
+/* ==========================================================================
+   Print
+   Swaps the editor for a document. Without this, "save as PDF" would capture
+   a dark page full of dropdowns and buttons.
+   ========================================================================== */
+
+/* The printable document is built into the page but never shown on screen. */
+.printable {
+  display: none;
+}
+
+/* Export menu, which is on-screen only. */
+.export {
+  position: relative;
+}
+.export__error {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: #ffb3b5;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.menu__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.menu__text small {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+@media print {
+  /* Paged media has no viewport to fill, and a flex column here would clip. */
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff;
+    color: #111;
+  }
+  .app-shell {
+    display: block;
+    height: auto;
+  }
+
+  /* Everything that is an editor rather than a document. */
+  .navbar,
+  .doc,
+  .wizard,
+  .alert,
+  .overlay,
+  .dialog {
+    display: none !important;
+  }
+
+  .printable {
+    display: block;
+    max-width: none;
+    padding: 0;
+    font-family: var(--sans);
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #111;
+  }
+
+  .printable__head {
+    padding-bottom: 10pt;
+    margin-bottom: 16pt;
+    border-bottom: 1pt solid #999;
+  }
+  .printable h1 {
+    font-size: 20pt;
+    margin: 0 0 3pt;
+    color: #000;
+  }
+  .printable__meta {
+    font-size: 9pt;
+    color: #666;
+  }
+
+  .printable section {
+    margin-bottom: 16pt;
+    /* Keeps a heading from being stranded at the foot of a page. */
+    break-inside: avoid;
+  }
+  .printable h2 {
+    font-size: 12pt;
+    margin: 0 0 6pt;
+    padding-bottom: 3pt;
+    border-bottom: 0.5pt solid #ccc;
+    color: #000;
+  }
+  .printable h3 {
+    font-size: 10.5pt;
+    margin: 0 0 3pt;
+    color: #000;
+  }
+  .printable h3 em {
+    font-weight: 400;
+    color: #666;
+  }
+  .printable p {
+    margin: 0 0 6pt;
+    max-width: none;
+  }
+
+  .printable ul {
+    margin: 0 0 8pt;
+    padding-left: 14pt;
+  }
+  .printable li {
+    margin-bottom: 2pt;
+  }
+
+  .printable__layer {
+    margin-bottom: 10pt;
+    break-inside: avoid;
+  }
+
+  .printable__pairs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2pt 20pt;
+    margin: 0;
+  }
+  .printable__pairs > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10pt;
+    padding: 2pt 0;
+    border-bottom: 0.5pt solid #eee;
+  }
+  .printable__pairs dt {
+    color: #555;
+  }
+  .printable__pairs dd {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .printable__modules {
+    list-style: none;
+    padding: 0;
+  }
+  .printable__modules li {
+    margin-bottom: 4pt;
+  }
+  .printable__tables {
+    display: block;
+    color: #666;
+    font-size: 9pt;
+  }
+
+  .printable__checks {
+    list-style: none;
+    padding: 0;
+  }
+  .printable__box {
+    display: inline-block;
+    width: 12pt;
+  }
+
+  .printable__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  .printable__table th {
+    text-align: left;
+    border-bottom: 1pt solid #999;
+    padding: 3pt 4pt;
+  }
+  .printable__table td {
+    border-bottom: 0.5pt solid #eee;
+    padding: 3pt 4pt;
+    vertical-align: top;
+  }
+  .printable__mono {
+    font-family: var(--mono);
+  }
+  /* A long endpoint table is the one thing here that may cross a page. */
+  .printable__table thead {
+    display: table-header-group;
+  }
+  .printable__table tr {
+    break-inside: avoid;
+  }
+}

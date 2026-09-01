@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectEditorPage from './pages/ProjectEditorPage';
+import PlanPage from './pages/PlanPage';
+import PlanWizardPage from './pages/PlanWizardPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { useAuthStore } from './store/useAuthStore';
 
@@ -24,6 +26,8 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/project/:id" element={<ProjectEditorPage />} />
+          <Route path="/project/:id/plan" element={<PlanPage />} />
+          <Route path="/project/:id/plan/wizard" element={<PlanWizardPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

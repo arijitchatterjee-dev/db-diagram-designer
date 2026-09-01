@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  CheckCircle,
   CircleNotch,
   FloppyDisk,
   Table,
@@ -10,6 +9,8 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react';
 import Navbar from '../components/layout/Navbar';
+import ProjectTabs from '../components/layout/ProjectTabs';
+import SaveState from '../components/ui/SaveState';
 import DbmlEditor from '../components/editor/DbmlEditor';
 import DiagramCanvas from '../components/editor/DiagramCanvas';
 import EditableTitle from '../components/editor/EditableTitle';
@@ -20,31 +21,6 @@ import { useProjectStore } from '../store/useProjectStore';
 
 const PARSE_DEBOUNCE_MS = 400;
 const AUTOSAVE_IDLE_MS = 3000;
-
-function SaveState({ saving, dirty, lastSavedAt }) {
-  if (saving) {
-    return (
-      <span className="state state--busy">
-        <CircleNotch size={13} weight="bold" className="spin" />
-        Saving
-      </span>
-    );
-  }
-  if (dirty) {
-    return (
-      <span className="state state--dirty">
-        <span className="state__dot" aria-hidden="true" />
-        Unsaved
-      </span>
-    );
-  }
-  return (
-    <span className="state">
-      <CheckCircle size={13} weight="fill" />
-      {lastSavedAt ? 'Saved' : 'Up to date'}
-    </span>
-  );
-}
 
 export default function ProjectEditorPage() {
   const { id } = useParams();
@@ -158,6 +134,8 @@ export default function ProjectEditorPage() {
         </Link>
 
         <EditableTitle value={project?.name ?? ''} onChange={setName} />
+
+        <ProjectTabs projectId={id} />
 
         <span className="doc-stats">
           <span title="Tables">
