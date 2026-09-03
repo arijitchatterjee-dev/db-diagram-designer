@@ -5,6 +5,7 @@ import '@fontsource-variable/geist-mono';
 import App from './App';
 import './styles.css';
 import './styles/shell.css';
+import './styles/dash.css';
 import './styles/wizard.css';
 import './styles/plan.css';
 import './styles/modules.css';

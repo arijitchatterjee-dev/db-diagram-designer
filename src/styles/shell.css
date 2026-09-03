@@ -17,7 +17,7 @@
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   height: 100%;
-  transition: grid-template-columns 0.16s ease;
+  transition: grid-template-columns 0.34s var(--ease);
 }
 .shell.is-collapsed {
   grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
@@ -36,7 +36,7 @@
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--hair);
   overflow: hidden;
 }
 
@@ -47,7 +47,7 @@
   height: var(--topbar-h);
   flex: none;
   padding: 0 10px 0 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hair);
 }
 .sidebar__head .brand {
   flex: 1;
@@ -97,20 +97,26 @@
   align-items: center;
   gap: 10px;
   padding: 7px 9px;
+  border: 1px solid transparent;
   border-radius: var(--r-sm);
   color: var(--text-2);
   font-size: 13px;
   white-space: nowrap;
   min-width: 0;
+  transition: color 0.3s var(--ease), background 0.3s var(--ease);
 }
 .snav__item:hover {
   color: var(--text);
   background: var(--surface-2);
   text-decoration: none;
 }
+/* The current page sits slightly proud of the rail rather than merely being a
+   darker patch: a hairline and a top highlight, like a key that is pressed. */
 .snav__item.is-active {
   color: var(--text);
   background: var(--surface-3);
+  border-color: var(--hair);
+  box-shadow: var(--lift-2);
 }
 /* The accent marks where you are, and nothing else in here. */
 .snav__item.is-active .snav__icon {
@@ -171,7 +177,7 @@
   position: relative;
   flex: none;
   padding: 8px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--hair);
 }
 .sidebar__foot .account__trigger {
   width: 100%;
@@ -223,13 +229,32 @@
   gap: 12px;
   padding: 0 14px;
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hair);
 }
 .topbar:empty {
   display: none;
 }
 .topbar__spacer {
   margin-left: auto;
+}
+.topbar__title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+/* The count sits with the title rather than in a subtitle line: the top bar is
+   one row tall, and "how many" belongs next to "of what". */
+.topbar__count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: center;
+}
+.topbar__count:empty {
+  display: none;
 }
 .topbar__burger {
   display: none;
@@ -267,7 +292,7 @@
     z-index: 70;
     width: var(--sidebar-w);
     transform: translateX(-100%);
-    transition: transform 0.18s ease;
+    transition: transform 0.42s var(--ease);
   }
   .sidebar.is-open {
     transform: none;

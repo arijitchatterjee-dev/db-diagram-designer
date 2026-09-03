@@ -31,9 +31,27 @@
   --danger-bg: rgba(229, 72, 77, 0.1);
   --danger-line: rgba(229, 72, 77, 0.32);
 
+  /* Radius scale. The last two are concentric: a 20px tray padded by 6px holds
+     a 14px core, so the curves stay parallel instead of drifting apart. */
   --r-xs: 4px;
   --r-sm: 8px;
   --r-md: 12px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* Hairlines. Light at low alpha rather than a flat grey: it picks up the
+     surface underneath, so a line over a raised panel reads lighter than the
+     same line over the page ground, the way a real edge would. */
+  --hair: rgba(255, 255, 255, 0.055);
+  --hair-2: rgba(255, 255, 255, 0.095);
+  /* A one-pixel top highlight, as if the surface caught the light. */
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --lift-2: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+
+  /* Motion. Decelerating curves with a long tail read as mass settling;
+     ease-in-out reads as a computer interpolating. */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --nav-h: 52px;
   --ring: 0 0 0 3px rgba(245, 165, 36, 0.25);
@@ -161,14 +179,16 @@ kbd {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.14s ease, border-color 0.14s ease, transform 0.08s ease;
+  transition: background 0.35s var(--ease), border-color 0.35s var(--ease),
+    transform 0.28s var(--ease);
 }
 .btn:hover:not(:disabled) {
   background: #1d222c;
   border-color: var(--line-3);
 }
+/* Presses in rather than dropping down: the whole control takes the force. */
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.972);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -204,6 +224,29 @@ kbd {
 .btn--block {
   width: 100%;
   padding: 10px 14px;
+}
+
+/* The one large primary moment in the app: the empty state. The trailing icon
+   gets its own well rather than floating beside the label, and leans out on
+   hover so the button has somewhere to go. */
+.btn--cta {
+  gap: 10px;
+  height: 42px;
+  padding: 0 6px 0 18px;
+  font-size: 13.5px;
+}
+.btn--cta .btn__well {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  background: rgba(27, 19, 2, 0.14);
+  transition: transform 0.45s var(--ease-out), background 0.35s var(--ease);
+}
+.btn--cta:hover:not(:disabled) .btn__well {
+  transform: translateX(2px);
+  background: rgba(27, 19, 2, 0.2);
 }
 
 /* ---------- forms ---------- */
@@ -719,39 +762,8 @@ kbd {
   }
 }
 
-/* ---------- dashboard ---------- */
-
-.dash {
-  flex: 1;
-  overflow: auto;
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 34px 28px 64px;
-}
-.dash__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
-}
-.dash__sub {
-  color: var(--text-3);
-  font-size: 13px;
-  margin-top: 3px;
-}
-.dash__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.dash__none {
-  color: var(--text-3);
-  font-size: 13px;
-  padding: 20px 0;
-}
+/* ---------- toolbar controls ---------- */
+/* The dashboard's own layout lives in styles/dash.css. */
 
 .search {
   display: flex;
@@ -797,10 +809,22 @@ kbd {
   gap: 14px;
   align-items: end;
   padding: 16px;
-  margin-bottom: 26px;
+  margin-bottom: 22px;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--lift);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .creator {
+    animation: creator-in 0.42s var(--ease-out);
+  }
+}
+@keyframes creator-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 .creator .field {
   margin-bottom: 0;
@@ -811,61 +835,7 @@ kbd {
   }
 }
 
-.cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 12px;
-}
-.card {
-  position: relative;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  transition: border-color 0.14s ease, background 0.14s ease;
-}
-.card:hover {
-  border-color: var(--line-3);
-  background: var(--surface-3);
-}
-.card__link {
-  display: block;
-  padding: 16px;
-  color: inherit;
-}
-.card__link:hover {
-  text-decoration: none;
-}
-.card__title {
-  padding-right: 26px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.card__desc {
-  color: var(--text-3);
-  font-size: 12.5px;
-  margin: 5px 0 14px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.6em;
-}
-.card__desc--empty {
-  font-style: italic;
-  opacity: 0.55;
-}
-.card__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--text-3);
-  font-size: 11.5px;
-}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -878,25 +848,11 @@ kbd {
   font-size: 11px;
   color: var(--text-2);
 }
-.card__go {
-  position: absolute;
-  right: 16px;
-  bottom: 15px;
-  color: var(--text-3);
-  opacity: 0;
-  transform: translateX(-3px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-}
-.card:hover .card__go {
-  opacity: 1;
-  transform: none;
-  color: var(--accent);
-}
 .card__menu {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  position: relative;
 }
+/* Always visible. Hidden-until-hover meant no menu at all on a touch screen,
+   and no hint that renaming or deleting was possible on any screen. */
 .card__menu-trigger {
   display: grid;
   place-items: center;
@@ -907,26 +863,15 @@ kbd {
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.14s ease, color 0.14s ease;
-}
-.card:hover .card__menu-trigger,
-.card__menu-trigger:focus-visible,
-.card__menu-trigger[aria-expanded='true'] {
-  opacity: 1;
+  transition: color 0.14s ease, background 0.14s ease;
 }
 .card__menu-trigger:hover,
 .card__menu-trigger[aria-expanded='true'] {
   color: var(--text);
-  background: var(--surface-3);
+  background: var(--bg);
   border-color: var(--line-2);
 }
 
-.card--skeleton {
-  padding: 16px;
-  display: grid;
-  gap: 10px;
-}
 .sk {
   display: block;
   border-radius: var(--r-xs);
@@ -934,17 +879,18 @@ kbd {
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
-.sk--title {
-  height: 13px;
-  width: 55%;
+.sk--mark {
+  height: 30px;
+  width: 30px;
+  border-radius: var(--r-sm);
 }
-.sk--line {
-  height: 10px;
-  width: 85%;
+.sk--title {
+  height: 11px;
+  width: 40%;
 }
 .sk--meta {
-  height: 10px;
-  width: 40%;
+  height: 11px;
+  width: 84px;
 }
 @keyframes shimmer {
   to {
@@ -1985,29 +1931,3 @@ kbd {
   background: rgba(127, 209, 160, 0.08);
 }
 
-.card__plan {
-  position: absolute;
-  left: 16px;
-  bottom: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-xs);
-  background: var(--bg);
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0;
-  transition: opacity 0.14s ease, color 0.14s ease, border-color 0.14s ease;
-}
-.card:hover .card__plan,
-.card__plan:focus-visible {
-  opacity: 1;
-}
-.card__plan:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  text-decoration: none;
-}

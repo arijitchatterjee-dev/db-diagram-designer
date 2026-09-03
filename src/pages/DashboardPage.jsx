@@ -73,6 +73,16 @@ export default function DashboardPage() {
     if (showForm) nameInput.current?.focus();
   }, [showForm]);
 
+  // Three numbers you cannot get anywhere else in the app without counting.
+  const totals = useMemo(
+    () => ({
+      projects: projects.length,
+      tables: projects.reduce((sum, p) => sum + (p.tableCount ?? 0), 0),
+      planned: projects.filter((p) => p.hasPlan).length,
+    }),
+    [projects]
+  );
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matched = q
@@ -144,61 +154,58 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell
+      topbar={
+        <>
+          <h1 className="topbar__title">Projects</h1>
+          <span className="topbar__count">
+            {loading ? '' : projects.length}
+          </span>
 
+          <span className="topbar__spacer" />
+
+          {projects.length > 3 && (
+            <>
+              <div className="search">
+                <MagnifyingGlass size={14} weight="bold" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter projects"
+                  aria-label="Filter projects"
+                />
+                {query && (
+                  <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
+                    <X size={12} weight="bold" />
+                  </button>
+                )}
+              </div>
+              <select
+                className="select select--inline"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                aria-label="Sort projects"
+              >
+                {Object.entries(SORTS).map(([id, option]) => (
+                  <option key={id} value={id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            onClick={() => setShowForm((v) => !v)}
+          >
+            {showForm ? <X size={14} weight="bold" /> : <Plus size={14} weight="bold" />}
+            {showForm ? 'Cancel' : 'New project'}
+          </button>
+        </>
+      }
+    >
       <main className="dash">
-        <header className="dash__head">
-          <div>
-            <h1>Projects</h1>
-            <p className="dash__sub">
-              {loading
-                ? 'Loading your schemas'
-                : `${projects.length} ${projects.length === 1 ? 'schema' : 'schemas'}, visible only to you`}
-            </p>
-          </div>
-
-          <div className="dash__actions">
-            {projects.length > 3 && (
-              <>
-                <div className="search">
-                  <MagnifyingGlass size={14} weight="bold" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Filter projects"
-                    aria-label="Filter projects"
-                  />
-                  {query && (
-                    <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
-                      <X size={12} weight="bold" />
-                    </button>
-                  )}
-                </div>
-                <select
-                  className="select select--inline"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  aria-label="Sort projects"
-                >
-                  {Object.entries(SORTS).map(([id, option]) => (
-                    <option key={id} value={id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => setShowForm((v) => !v)}
-            >
-              {showForm ? <X size={15} weight="bold" /> : <Plus size={15} weight="bold" />}
-              {showForm ? 'Cancel' : 'New project'}
-            </button>
-          </div>
-        </header>
-
         {error && (
           <p className="alert alert--error" role="alert">
             <WarningCircle size={15} weight="fill" />
@@ -238,16 +245,35 @@ export default function DashboardPage() {
           </form>
         )}
 
+        {!loading && projects.length > 0 && (
+          <div className="dstat">
+            <div className="dstat__cell">
+              <span className="dstat__n">{totals.projects}</span>
+              <span className="dstat__k">Projects</span>
+            </div>
+            <div className="dstat__cell">
+              <span className="dstat__n">{totals.tables}</span>
+              <span className="dstat__k">Tables</span>
+            </div>
+            <div className="dstat__cell">
+              <span className="dstat__n">{totals.planned}</span>
+              <span className="dstat__k">With a plan</span>
+            </div>
+          </div>
+        )}
+
         {loading && (
-          <ul className="cards" aria-hidden="true">
-            {[0, 1, 2].map((i) => (
-              <li key={i} className="card card--skeleton">
-                <span className="sk sk--title" />
-                <span className="sk sk--line" />
-                <span className="sk sk--meta" />
-              </li>
-            ))}
-          </ul>
+          <div className="ptray" aria-hidden="true">
+            <ul className="plist">
+              {[0, 1, 2, 3].map((i) => (
+                <li key={i} className="prow prow--skeleton">
+                  <span className="sk sk--mark" />
+                  <span className="sk sk--title" />
+                  <span className="sk sk--meta" />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {!loading && projects.length === 0 && (
@@ -260,9 +286,15 @@ export default function DashboardPage() {
               A new project opens with a small sample schema, so there is something on the
               canvas from the first second.
             </p>
-            <button type="button" className="btn btn--primary" onClick={() => setShowForm(true)}>
-              <Plus size={15} weight="bold" />
+            <button
+              type="button"
+              className="btn btn--primary btn--cta"
+              onClick={() => setShowForm(true)}
+            >
               Create your first project
+              <span className="btn__well" aria-hidden="true">
+                <ArrowRight size={15} weight="bold" />
+              </span>
             </button>
           </section>
         )}
@@ -272,21 +304,33 @@ export default function DashboardPage() {
         )}
 
         {visible.length > 0 && (
-          <ul className="cards">
-            {visible.map((project) => (
-              <li key={project._id} className="card">
-                <Link to={`/project/${project._id}`} className="card__link">
-                  <h3 className="card__title">{project.name}</h3>
-                  {project.description ? (
-                    <p className="card__desc">{project.description}</p>
-                  ) : (
-                    <p className="card__desc card__desc--empty">No description</p>
-                  )}
+          <div className="ptray">
+            <ul className="plist">
+              {visible.map((project, i) => (
+                <li
+                  key={project._id}
+                  className="prow prow--in"
+                  style={{ '--i': Math.min(i, 8) }}
+                >
+                  {/* The link's ::after covers the row, so anywhere that is not a
+                      control opens the project. Nesting the controls inside the
+                      anchor instead would be invalid markup. */}
+                  <Link to={`/project/${project._id}`} className="prow__main">
+                    <span className="prow__mark" aria-hidden="true">
+                      {project.name.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="prow__text">
+                      <span className="prow__name">{project.name}</span>
+                      {project.description && (
+                        <span className="prow__desc">{project.description}</span>
+                      )}
+                    </span>
+                  </Link>
 
-                  <p className="card__meta">
+                  <span className="prow__chips">
                     <span className="chip">
                       <Table size={11} weight="bold" />
-                      {project.tableCount ?? 0} {project.tableCount === 1 ? 'table' : 'tables'}
+                      {project.tableCount ?? 0}
                     </span>
                     {project.hasPlan && (
                       <span className={`chip chip--plan is-${project.planStatus}`}>
@@ -294,34 +338,36 @@ export default function DashboardPage() {
                         {PLAN_STATUS_LABEL[project.planStatus] ?? 'Plan'}
                       </span>
                     )}
-                    <time dateTime={project.updatedAt} title={absoluteTime(project.updatedAt)}>
-                      {relativeTime(project.updatedAt)}
-                    </time>
-                  </p>
-
-                  <span className="card__go" aria-hidden="true">
-                    <ArrowRight size={14} weight="bold" />
                   </span>
-                </Link>
 
-                {/* Outside the card link: a nested anchor would be invalid markup. */}
-                <Link to={`/project/${project._id}/plan`} className="card__plan">
-                  <Compass size={12} weight="bold" />
-                  {project.hasPlan ? 'Open plan' : 'Plan it'}
-                </Link>
+                  <time
+                    className="prow__time"
+                    dateTime={project.updatedAt}
+                    title={absoluteTime(project.updatedAt)}
+                  >
+                    {relativeTime(project.updatedAt)}
+                  </time>
 
-                <CardMenu
-                  label={project.name}
-                  onRename={() => {
-                    setDetailsError(null);
-                    setEditing(project);
-                  }}
-                  onDuplicate={() => handleDuplicate(project)}
-                  onDelete={() => setPendingDelete(project)}
-                />
-              </li>
-            ))}
-          </ul>
+                  <span className="prow__actions">
+                    <Link to={`/project/${project._id}/plan`} className="prow__plan">
+                      <Compass size={13} weight="bold" />
+                      {project.hasPlan ? 'Plan' : 'Plan it'}
+                    </Link>
+
+                    <CardMenu
+                      label={project.name}
+                      onRename={() => {
+                        setDetailsError(null);
+                        setEditing(project);
+                      }}
+                      onDuplicate={() => handleDuplicate(project)}
+                      onDelete={() => setPendingDelete(project)}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </main>
 
