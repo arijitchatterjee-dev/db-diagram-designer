@@ -1,0 +1,224 @@
+/* ==========================================================================
+   Custom modules
+   The editor dialog and the library. Uses the tokens from styles.css and the
+   dialog primitives from plan.css.
+   ========================================================================== */
+
+.dialog--editor {
+  max-width: 760px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.dialog__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.dialog__bar .dialog__title {
+  margin: 0;
+  flex: 1;
+}
+.dialog__close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: none;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.dialog__close:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.dialog__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 20px;
+}
+.dialog--editor .dialog__actions,
+.dialog--wide .dialog__actions {
+  padding: 14px 20px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.dialog__actions--split {
+  justify-content: space-between;
+}
+.dialog__actions--split .dialog__actions {
+  padding: 0;
+  border: none;
+}
+
+/* ---------- sections inside the editor ---------- */
+
+.modsec {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.modsec h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.modsec__count {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+.modsec__editor {
+  height: 260px;
+  margin: 10px 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  display: flex;
+}
+.modsec__tables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.modsec__tables .chip em {
+  font-style: normal;
+  color: var(--text-3);
+}
+.modsec__problems {
+  margin: 14px 0 0;
+  padding: 10px 12px 10px 30px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  color: #ffb3b5;
+  font-size: 12.5px;
+}
+.modsec__problems li {
+  margin-bottom: 3px;
+}
+
+.depends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+}
+.depends .chip button {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 3px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.depends .chip button:hover {
+  color: #ff9a9c;
+}
+
+/* ---------- module actions on the plan page ---------- */
+
+.modactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+/* A module you defined reads differently from catalogue content. */
+.modchip.is-custom {
+  border-color: rgba(245, 165, 36, 0.34);
+  background: var(--accent-dim);
+}
+.modchip__mine {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+/* ---------- library ---------- */
+
+.library {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.library__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.library__body {
+  min-width: 0;
+}
+.library__name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.library__key {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+.library__version {
+  padding: 1px 5px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+.library__summary {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.library__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.library__meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.library__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}

@@ -8,8 +8,7 @@ import {
   TreeStructure,
   WarningCircle,
 } from '@phosphor-icons/react';
-import Navbar from '../components/layout/Navbar';
-import ProjectTabs from '../components/layout/ProjectTabs';
+import AppShell from '../components/layout/AppShell';
 import SaveState from '../components/ui/SaveState';
 import DbmlEditor from '../components/editor/DbmlEditor';
 import DiagramCanvas from '../components/editor/DiagramCanvas';
@@ -98,20 +97,18 @@ export default function ProjectEditorPage() {
 
   if (loading) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <CircleNotch size={20} weight="bold" className="spin" />
           <p>Opening project</p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (loadError) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <span className="blank__icon">
             <WarningCircle size={20} weight="fill" />
@@ -122,20 +119,15 @@ export default function ProjectEditorPage() {
             Back to projects
           </Link>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="app-shell">
-      <Navbar>
-        <Link to="/" className="back" title="Back to projects">
-          <ArrowLeft size={15} weight="bold" />
-        </Link>
+    <AppShell topbar={<>
 
         <EditableTitle value={project?.name ?? ''} onChange={setName} />
 
-        <ProjectTabs projectId={id} />
 
         <span className="doc-stats">
           <span title="Tables">
@@ -148,7 +140,7 @@ export default function ProjectEditorPage() {
           </span>
         </span>
 
-        <span className="navbar__spacer" />
+        <span className="topbar__spacer" />
 
         <SaveState saving={saving} dirty={dirty} lastSavedAt={lastSavedAt} />
 
@@ -164,7 +156,7 @@ export default function ProjectEditorPage() {
           <FloppyDisk size={14} weight="bold" />
           Save
         </button>
-      </Navbar>
+      </>}>
 
       {importing && (
         <ImportDialog
@@ -188,6 +180,6 @@ export default function ProjectEditorPage() {
         left={<DbmlEditor value={dbml} onChange={setDbml} parseError={parseError} />}
         right={<DiagramCanvas />}
       />
-    </div>
+    </AppShell>
   );
 }

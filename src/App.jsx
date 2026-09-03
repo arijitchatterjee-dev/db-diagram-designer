@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProjectEditorPage from './pages/ProjectEditorPage';
 import PlanPage from './pages/PlanPage';
 import PlanWizardPage from './pages/PlanWizardPage';
+import ArchitecturePage from './pages/ArchitecturePage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { useAuthStore } from './store/useAuthStore';
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/project/:id" element={<ProjectEditorPage />} />
           <Route path="/project/:id/plan" element={<PlanPage />} />
           <Route path="/project/:id/plan/wizard" element={<PlanWizardPage />} />
+          <Route path="/project/:id/architecture" element={<ArchitecturePage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

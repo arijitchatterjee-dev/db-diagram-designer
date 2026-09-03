@@ -83,6 +83,68 @@ const parsed = await parseDbml(fence);
 check('the embedded DBML parses', parsed.ok, true);
 check('  ...with every table', parsed.schema.tables.length, entities.length);
 
+// ------------------------------------------ architecture, folders, the log
+const withArchitecture = {
+  ...plan,
+  architecture: {
+    layering: { choice: 'modular', reasons: ['A feature becomes one folder.'], alternatives: [{ choice: 'mvc', why: '', tradeoff: 'Ten features flattened stops being navigable.' }], overridden: true, note: 'Team prefers this.' },
+    topology: { choice: 'monolith', reasons: ['One thing to deploy.'], alternatives: [], overridden: false, note: '' },
+    concerns: [
+      { key: 'auth', choice: 'session-cookie', reason: 'Page JavaScript can never read the token.', note: '', overridden: false },
+      { key: 'jobs', choice: 'none', reason: '', note: 'Revisit at launch.', overridden: true },
+    ],
+    decisions: [
+      { id: 'stack:database', title: 'Database: PostgreSQL', date: '2026-09-03', context: 'Money and joins.', choice: 'PostgreSQL', rejected: ['MongoDB: transactions are the exception'], consequence: 'One primary for writes.', source: 'engine' },
+      { id: 'manual:x', title: 'Use UUIDs for public ids', date: '2026-09-01', context: 'Sequential ids leak volume.', choice: 'UUID v7', rejected: [], consequence: 'Larger indexes.', source: 'manual' },
+    ],
+  },
+  folders: {
+    generatedFrom: 'express|react-vite|modular|10|abc',
+    tree: [
+      { path: 'server/src/modules/orders', kind: 'folder', note: '' },
+      { path: 'server/src/modules/orders/orders.service.js', kind: 'file', note: 'Business logic' },
+      { path: 'server/src/app.js', kind: 'file', note: '' },
+    ],
+  },
+};
+
+for (const [name, text] of [
+  ['document', buildSpec({ ...base, plan: withArchitecture, mode: 'document' })],
+  ['prompt', buildSpec({ ...base, plan: withArchitecture, mode: 'prompt' })],
+]) {
+  // Names, not keys: an export saying "modular" helps nobody.
+  check(`${name}: names the layering`, text.includes('**Layering: Feature modules**'), true);
+  check(`${name}: names the topology`, text.includes('**Deployment: One deployable**'), true);
+  check(`${name}: carries the architecture reasoning`, text.includes('A feature becomes one folder.'), true);
+  check(`${name}: marks an override`, text.includes('chosen over the recommendation'), true);
+  check(`${name}: carries your note on it`, text.includes('Team prefers this.'), true);
+  check(`${name}: records what was ruled out`, text.includes('Not mvc:'), true);
+  check(`${name}: has a concerns table`, text.includes('| Concern | Decision | Why |'), true);
+  check(`${name}: names the concern option`, text.includes('httpOnly session cookie'), true);
+  // A concern you chose has no rule to quote, and the export says so honestly.
+  check(`${name}: falls back to your note when there is no rule`, text.includes('Revisit at launch.'), true);
+  check(`${name}: has the folder tree`, text.includes('Folder structure'), true);
+  check(`${name}: renders it as a tree`, text.includes('orders.service.js'), true);
+  check(`${name}: carries folder notes`, text.includes('# Business logic'), true);
+  check(`${name}: has the decision log`, text.includes('Decision log'), true);
+  check(`${name}: with an engine entry`, text.includes('Database: PostgreSQL (2026-09-03)'), true);
+  check(`${name}: and one of yours`, text.includes('Use UUIDs for public ids'), true);
+  check(`${name}: recording what was set aside`, text.includes('MongoDB: transactions are the exception'), true);
+  check(`${name}: and what it costs later`, text.includes('One primary for writes.'), true);
+}
+
+// The instruction that makes the folder structure worth exporting at all.
+check(
+  'the prompt tells an agent to follow the folder structure',
+  buildSpec({ ...base, plan: withArchitecture, mode: 'prompt' }).includes('Follow the folder structure'),
+  true
+);
+check(
+  '  ...and to ask rather than invent a home',
+  buildSpec({ ...base, plan: withArchitecture, mode: 'prompt' }).includes('ask rather than inventing one'),
+  true
+);
+
 // ------------------------------------------------------------- edge cases
 const empty = buildSpec({
   projectName: 'Blank',
@@ -96,6 +158,19 @@ check('  ...saying the context is missing', empty.includes('_Not written yet._')
 check('  ...with no empty API table', empty.includes('| Method |'), false);
 check('  ...and no empty code fence', empty.includes('```dbml'), false);
 check('  ...and no stack section', empty.includes('## Stack'), false);
+// Sections with nothing in them are absent rather than present and empty.
+check('  ...no architecture section', empty.includes('## Architecture'), false);
+check('  ...no folder section', empty.includes('## Folder structure'), false);
+check('  ...and no decision log', empty.includes('## Decision log'), false);
+
+// A plan with an architecture but no folders yet prints the one it has.
+const archOnly = buildSpec({
+  ...base,
+  plan: { ...withArchitecture, folders: { generatedFrom: '', tree: [] } },
+  mode: 'document',
+});
+check('an architecture without folders still prints', archOnly.includes('**Layering: Feature modules**'), true);
+check('  ...and omits the folder section', archOnly.includes('## Folder structure'), false);
 
 // An override and a toss-up have to be visible, not smoothed over.
 const withOverride = applyOverrides(stack, { database: 'mysql' }, answers);

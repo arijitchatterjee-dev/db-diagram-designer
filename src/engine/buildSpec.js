@@ -1,6 +1,9 @@
 import { labelFor, LAYERS, PRESETS, ANSWERS, ANSWER_KEYS } from './planOptions.js';
 import { findModule } from './modules.js';
 import { generateDbml } from './generateDbml.js';
+import { findArchitecture } from './architecture.js';
+import { findConcern, findConcernOption } from './concerns.js';
+import { renderTreeText } from './folders.js';
 
 /**
  * Turns a plan into the two things you take away from it.
@@ -87,6 +90,89 @@ function modulesSection(moduleKeys, selectedModules, level) {
   return lines;
 }
 
+/**
+ * The stored rows hold keys; the catalogues hold the names and the summaries.
+ * Resolving here keeps the exports readable without the caller having to pass
+ * the derived architecture in alongside the plan.
+ */
+function architectureSection(architecture, level) {
+  const lines = [];
+
+  for (const [dimension, label] of [
+    ['layering', 'Layering'],
+    ['topology', 'Deployment'],
+  ]) {
+    const row = architecture?.[dimension];
+    if (!row?.choice) continue;
+
+    const candidate = findArchitecture(dimension, row.choice);
+    lines.push(
+      '',
+      `**${label}: ${candidate?.name ?? row.choice}**${row.overridden ? ' _(chosen over the recommendation)_' : ''}`
+    );
+    if (candidate?.summary) lines.push(candidate.summary);
+    for (const reason of row.reasons ?? []) lines.push(`- ${reason}`);
+    // Only what was genuinely rejected, so the reader knows the obvious
+    // alternative was considered rather than missed.
+    for (const alt of row.alternatives ?? []) {
+      if (alt.tradeoff && !alt.why) lines.push(`- Not ${alt.choice}: ${alt.tradeoff}`);
+    }
+    if (candidate?.breaksAt) lines.push(`- Breaks at: ${candidate.breaksAt}`);
+    if (row.note) lines.push(`- Note: ${row.note}`);
+  }
+
+  const concerns = (architecture?.concerns ?? []).filter((concern) => concern.choice);
+  if (concerns.length) {
+    lines.push(
+      '',
+      heading(level + 1, 'Cross-cutting concerns'),
+      '',
+      '| Concern | Decision | Why |',
+      '| --- | --- | --- |',
+      ...concerns.map((concern) => {
+        const definition = findConcern(concern.key);
+        const option = findConcernOption(concern.key, concern.choice);
+        const why = concern.reason || (concern.note ? concern.note : 'Your own call.');
+        return `| ${definition?.label ?? concern.key} | ${option?.name ?? concern.choice} | ${why} |`;
+      })
+    );
+  }
+
+  return lines.length ? [heading(level, 'Architecture'), ...lines] : [];
+}
+
+function foldersSection(folders, level) {
+  const tree = folders?.tree ?? [];
+  if (tree.length === 0) return [];
+
+  return [
+    heading(level, 'Folder structure'),
+    '',
+    'Where things go. This follows the layering decision above.',
+    '',
+    '```',
+    renderTreeText(tree),
+    '```',
+  ];
+}
+
+function decisionSection(decisions, level) {
+  const entries = decisions ?? [];
+  if (entries.length === 0) return [];
+
+  const lines = [heading(level, 'Decision log')];
+  for (const entry of entries) {
+    lines.push('', heading(level + 1, `${entry.title}${entry.date ? ` (${entry.date})` : ''}`));
+    if (entry.choice) lines.push(`**Decided:** ${entry.choice}`);
+    if (entry.context) lines.push('', entry.context);
+    if ((entry.rejected ?? []).length) {
+      lines.push('', 'Set aside:', ...entry.rejected.map((item) => `- ${item}`));
+    }
+    if (entry.consequence) lines.push('', `**Costs later:** ${entry.consequence}`);
+  }
+  return lines;
+}
+
 function apiSection(apis, level) {
   if (apis.length === 0) return [];
   return [
@@ -144,9 +230,15 @@ export function buildSpec({
   const stackLines = stackSection(stack, 2);
   if (stackLines.length) out.push('', ...stackLines);
 
+  const architectureLines = architectureSection(plan.architecture, 2);
+  if (architectureLines.length) out.push('', ...architectureLines);
+
   if ((plan.scaleNotes ?? []).length) {
     out.push('', heading(2, 'What breaks first'), '', ...plan.scaleNotes.map((n) => `- ${n}`));
   }
+
+  const folderLines = foldersSection(plan.folders, 2);
+  if (folderLines.length) out.push('', ...folderLines);
 
   const moduleLines = modulesSection(moduleKeys, selectedModules, 2);
   if (moduleLines.length) out.push('', ...moduleLines);
@@ -167,12 +259,16 @@ export function buildSpec({
     );
   }
 
+  const decisionLines = decisionSection(plan.architecture?.decisions, 2);
+  if (decisionLines.length) out.push('', ...decisionLines);
+
   if (isPrompt) {
     out.push(
       '',
       heading(2, 'How to work'),
       '',
       '- Use the stack above. Every line under it is the reason it was picked.',
+      '- Follow the folder structure. If something has no obvious home in it, ask rather than inventing one.',
       '- Tick nothing off a checklist you have not actually done.',
       '- The data model is a starting point. Add the columns the features need.',
       '- Ask before adding a dependency that is not implied by the stack.',

@@ -6,7 +6,7 @@ function answerLabel(key, value) {
   return ANSWERS[key].options.find((o) => o.value === value)?.label ?? value;
 }
 
-export default function StepReview({ draft, stack, apis, entities, notes, gaps }) {
+export default function StepReview({ draft, stack, architecture, apis, entities, notes, gaps }) {
   const decided = stack.filter((row) => !row.undecided);
 
   return (
@@ -65,6 +65,35 @@ export default function StepReview({ draft, stack, apis, entities, notes, gaps }
           ))}
         </dl>
       </section>
+
+      {architecture && (architecture.layering?.choice || architecture.topology?.choice) && (
+        <section className="rev">
+          <h3>Architecture</h3>
+          <dl className="rev__pairs">
+            {[
+              ['layering', 'Layering'],
+              ['topology', 'Deployment'],
+            ].map(([dimension, label]) => {
+              const row = architecture[dimension];
+              if (!row || row.undecided) return null;
+              return (
+                <div key={dimension}>
+                  <dt>{label}</dt>
+                  <dd>
+                    {row.name}
+                    {row.overridden && <span className="badge--override">Your choice</span>}
+                    {row.tossUp && <span className="badge--toss">Toss-up</span>}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+          <p className="rev__meta">
+            The concerns, the folder structure and the decision log follow from these, and
+            are written when the plan is created.
+          </p>
+        </section>
+      )}
 
       <section className="rev">
         <h3>

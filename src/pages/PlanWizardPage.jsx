@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CircleNotch, WarningCircle } from '@phosphor-icons/react';
-import Navbar from '../components/layout/Navbar';
+import AppShell from '../components/layout/AppShell';
 import WizardNav, { WizardFooter } from '../components/wizard/WizardNav';
 import StepContext from '../components/wizard/StepContext';
 import StepConstraints from '../components/wizard/StepConstraints';
 import StepStack from '../components/wizard/StepStack';
 import StepModules from '../components/wizard/StepModules';
+import StepArchitecture from '../components/wizard/StepArchitecture';
 import StepApis from '../components/wizard/StepApis';
 import StepReview from '../components/wizard/StepReview';
 import { usePlanStore } from '../store/usePlanStore';
@@ -21,13 +22,22 @@ import {
   removeModule,
   apisFor,
   entitiesFor,
+  recommendArchitecture,
+  recommendConcerns,
+  applyArchitectureOverrides,
+  architectureFacts,
+  toArchitectureRows,
+  toConcernRows,
 } from '../engine/recommend';
+import { generateFolders, folderSignature } from '../engine/folders';
+import { seedDecisions } from '../engine/decisions';
 
 const STEPS = [
   { key: 'context', label: 'Context' },
   { key: 'constraints', label: 'Constraints' },
   { key: 'stack', label: 'Stack' },
   { key: 'modules', label: 'Modules' },
+  { key: 'architecture', label: 'Architecture' },
   { key: 'apis', label: 'APIs' },
   { key: 'review', label: 'Review' },
 ];
@@ -39,6 +49,7 @@ const EMPTY_DRAFT = {
   answers: {},
   moduleKeys: [],
   overrides: {},
+  archOverrides: {},
 };
 
 export default function PlanWizardPage() {
@@ -54,7 +65,6 @@ export default function PlanWizardPage() {
   const loadPlan = usePlanStore((s) => s.loadPlan);
   const startPlan = usePlanStore((s) => s.startPlan);
   const save = usePlanStore((s) => s.save);
-  const reset = usePlanStore((s) => s.reset);
 
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
@@ -74,8 +84,7 @@ export default function PlanWizardPage() {
 
   useEffect(() => {
     loadPlan(id);
-    return () => reset();
-  }, [id, loadPlan, reset]);
+  }, [id, loadPlan]);
 
   // Re-entering the wizard on an existing plan picks up where it left off
   // rather than starting from nothing.
@@ -92,6 +101,11 @@ export default function PlanWizardPage() {
       moduleKeys: [...(plan.moduleKeys ?? [])],
       overrides: Object.fromEntries(
         (plan.stack ?? []).filter((row) => row.overridden).map((row) => [row.layer, row.choice])
+      ),
+      archOverrides: Object.fromEntries(
+        ['layering', 'topology']
+          .filter((d) => plan.architecture?.[d]?.overridden && plan.architecture[d].choice)
+          .map((d) => [d, plan.architecture[d].choice])
       ),
     });
     setTouched({ answers: new Set(Object.keys(plan.answers ?? {})), modules: true });
@@ -111,6 +125,27 @@ export default function PlanWizardPage() {
   const entities = useMemo(() => entitiesFor(draft.moduleKeys), [draft.moduleKeys]);
   const notes = useMemo(() => scaleNotes(draft.answers, stack), [draft.answers, stack]);
   const apisStale = Boolean(editedApis) && apisBasis !== draft.moduleKeys.join(',');
+
+  // Architecture reads the modules as well as the answers, so going back and
+  // changing the selection genuinely changes what this step recommends.
+  const facts = useMemo(
+    () => architectureFacts({ moduleKeys: draft.moduleKeys, answers: draft.answers }, stack),
+    [draft.moduleKeys, draft.answers, stack]
+  );
+  const architecture = useMemo(
+    () =>
+      applyArchitectureOverrides(
+        recommendArchitecture(draft.answers, facts),
+        draft.archOverrides,
+        draft.answers,
+        facts
+      ),
+    [draft.answers, facts, draft.archOverrides]
+  );
+  const concerns = useMemo(
+    () => recommendConcerns(draft.answers, facts, architecture),
+    [draft.answers, facts, architecture]
+  );
 
   const gaps = useMemo(() => {
     const list = [];
@@ -215,13 +250,39 @@ export default function PlanWizardPage() {
   }
 
   async function finish() {
+    // Everything the architecture implies is written now rather than left for
+    // the tab to compute later, so the plan is complete the moment it exists
+    // and the exports have something to say from the first second.
+    const folderInputs = {
+      stack,
+      layering: architecture.layering?.undecided ? '' : architecture.layering?.choice ?? '',
+      moduleKeys: draft.moduleKeys,
+      customModules: plan?.customModules ?? [],
+    };
+
     startPlan({
       presetKey: draft.presetKey,
       context: draft.context,
       goal: draft.goal,
       answers: draft.answers,
       moduleKeys: draft.moduleKeys,
+      customModules: plan?.customModules ?? [],
       stack: toStackRows(stack),
+      architecture: {
+        ...toArchitectureRows(architecture),
+        concerns: toConcernRows(concerns),
+        // Seeded against anything already logged, so re-running the wizard on
+        // an existing plan never discards an entry you wrote.
+        decisions: seedDecisions({
+          stack,
+          architecture,
+          existing: plan?.architecture?.decisions ?? [],
+        }),
+      },
+      folders: {
+        generatedFrom: folderSignature(folderInputs),
+        tree: generateFolders(folderInputs),
+      },
       // Paths that would be rejected by the API are dropped rather than
       // failing the whole save. The review step already flagged them.
       apis: apis.filter((api) => api.path.startsWith('/')),
@@ -236,20 +297,18 @@ export default function PlanWizardPage() {
 
   if (loading) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <CircleNotch size={20} weight="bold" className="spin" />
           <p>Opening project</p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (loadError) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <span className="blank__icon">
             <WarningCircle size={20} weight="fill" />
@@ -260,21 +319,20 @@ export default function PlanWizardPage() {
             Back to projects
           </Link>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="app-shell">
-      <Navbar>
+    <AppShell topbar={<>
         <Link to={`/project/${id}/plan`} className="back" title="Leave the wizard">
           <ArrowLeft size={15} weight="bold" />
         </Link>
         <h1 className="doc-title">{project?.name}</h1>
         <span className="wtag">Planning</span>
-      </Navbar>
+      </>}>
 
       {saveError && (
         <p className="alert alert--error alert--bar" role="alert">
@@ -306,6 +364,20 @@ export default function PlanWizardPage() {
           )}
           {step === 3 && <StepModules draft={draft} notice={notice} onToggle={toggleModule} />}
           {step === 4 && (
+            <StepArchitecture
+              architecture={architecture}
+              moduleCount={draft.moduleKeys.length}
+              onOverride={(dimension, choice) =>
+                update({ archOverrides: { ...draft.archOverrides, [dimension]: choice } })
+              }
+              onClearOverride={(dimension) => {
+                const next = { ...draft.archOverrides };
+                delete next[dimension];
+                update({ archOverrides: next });
+              }}
+            />
+          )}
+          {step === 5 && (
             <StepApis
               apis={apis}
               stale={apisStale}
@@ -315,10 +387,11 @@ export default function PlanWizardPage() {
               onRederive={rederiveApis}
             />
           )}
-          {step === 5 && (
+          {step === 6 && (
             <StepReview
               draft={draft}
               stack={stack}
+              architecture={architecture}
               apis={apis}
               entities={entities}
               notes={notes}
@@ -335,6 +408,6 @@ export default function PlanWizardPage() {
           nextHint={isLast && gaps.length > 0 ? `${gaps.length} things left open` : null}
         />
       </main>
-    </div>
+    </AppShell>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   Compass,
@@ -9,13 +9,14 @@ import {
   WarningCircle,
   X,
 } from '@phosphor-icons/react';
-import Navbar from '../components/layout/Navbar';
+import AppShell from '../components/layout/AppShell';
 import CardMenu from '../components/ui/CardMenu';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import ProjectDetailsDialog from '../components/ui/ProjectDetailsDialog';
 import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
 import { absoluteTime, relativeTime } from '../utils/formatTime';
+import { useProjectsStore } from '../store/useProjectsStore';
 
 const PLAN_STATUS_LABEL = {
   draft: 'Draft',
@@ -30,8 +31,12 @@ const SORTS = {
 };
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const projects = useProjectsStore((s) => s.projects);
+  const loading = useProjectsStore((s) => s.loading);
+  const loadProjects = useProjectsStore((s) => s.load);
+  const upsertProject = useProjectsStore((s) => s.upsert);
+  const removeProject = useProjectsStore((s) => s.remove);
+
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('updated');
@@ -50,17 +55,19 @@ export default function DashboardPage() {
   const nameInput = useRef(null);
   const navigate = useNavigate();
 
+  const [params, setParams] = useSearchParams();
+
   useEffect(() => {
-    let cancelled = false;
-    projectApi
-      .listProjects()
-      .then((list) => !cancelled && setProjects(list))
-      .catch((err) => !cancelled && setError(apiErrorMessage(err, 'Could not load your projects')))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadProjects();
+  }, [loadProjects]);
+
+  // The sidebar's "New project" link lands here with the form already open.
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setShowForm(true);
+      setParams({}, { replace: true });
+    }
+  }, [params, setParams]);
 
   useEffect(() => {
     if (showForm) nameInput.current?.focus();
@@ -98,10 +105,7 @@ export default function DashboardPage() {
     try {
       const copy = await projectApi.duplicateProject(project._id);
       // The API returns the full copy; the list only needs the card fields.
-      setProjects((list) => [
-        { ...copy, tableCount: project.tableCount },
-        ...list,
-      ]);
+      upsertProject({ ...copy, tableCount: project.tableCount });
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not duplicate the project'));
     }
@@ -112,13 +116,12 @@ export default function DashboardPage() {
     setDetailsError(null);
     try {
       const updated = await projectApi.updateProject(editing._id, changes);
-      setProjects((list) =>
-        list.map((p) =>
-          p._id === updated._id
-            ? { ...p, name: updated.name, description: updated.description, updatedAt: updated.updatedAt }
-            : p
-        )
-      );
+      upsertProject({
+        _id: updated._id,
+        name: updated.name,
+        description: updated.description,
+        updatedAt: updated.updatedAt,
+      });
       setEditing(null);
     } catch (err) {
       setDetailsError(apiErrorMessage(err, 'Could not save the changes'));
@@ -131,7 +134,7 @@ export default function DashboardPage() {
     setDeleting(true);
     try {
       await projectApi.deleteProject(pendingDelete._id);
-      setProjects((list) => list.filter((p) => p._id !== pendingDelete._id));
+      removeProject(pendingDelete._id);
       setPendingDelete(null);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not delete the project'));
@@ -141,8 +144,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="app-shell">
-      <Navbar />
+    <AppShell>
 
       <main className="dash">
         <header className="dash__head">
@@ -341,6 +343,6 @@ export default function DashboardPage() {
         onConfirm={handleDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </AppShell>
   );
 }

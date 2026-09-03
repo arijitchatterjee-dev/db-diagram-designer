@@ -134,12 +134,6 @@ kbd {
   }
 }
 
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
 .center {
   flex: 1;
   display: flex;
@@ -371,28 +365,7 @@ kbd {
   border-radius: var(--r-sm);
 }
 
-/* ---------- navbar ---------- */
-
-.navbar {
-  height: var(--nav-h);
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px 0 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.navbar__slot {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.navbar__spacer {
-  margin-left: auto;
-}
+/* ---------- top bar contents ---------- */
 
 .back {
   display: grid;
@@ -1856,21 +1829,43 @@ kbd {
 
 /* ---------- plan document ---------- */
 
+/* The scroller is the full width of the pane, so its scrollbar sits at the edge
+   of the window. Centring the scroller itself parked the bar in the middle of
+   the screen, floating beside the text. The reading column is centred inside
+   it instead. */
 .doc {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 26px 32px 96px;
+}
+.doc > * {
   width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 32px 28px 80px;
+  max-width: var(--doc-w);
+  margin-inline: auto;
 }
 .doc .blank {
-  margin-top: 8vh;
+  margin: 8vh auto 0;
+  max-width: 560px;
 }
-
+/* Each section reads as a labelled row: what this is on the left, the controls
+   on the right. One heading column down the page gives the eye a spine to
+   follow, and stops a 700px form from sitting alone in a 1600px window. */
 .doc__section {
-  padding: 22px 0;
+  display: grid;
+  grid-template-columns: var(--doc-rail) minmax(0, 1fr);
+  column-gap: 44px;
+  padding: 26px 0 30px;
   border-bottom: 1px solid var(--line);
+}
+.doc__head {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+.doc__section > *:not(.doc__head) {
+  grid-column: 2;
+  min-width: 0;
 }
 .doc__section:last-child {
   border-bottom: none;
@@ -1878,17 +1873,39 @@ kbd {
 .doc__section--quiet {
   opacity: 0.85;
 }
-.doc__head {
-  margin-bottom: 16px;
-}
 .doc__head h2 {
-  font-size: 15px;
-  margin-bottom: 3px;
+  font-size: 14px;
+  margin-bottom: 5px;
 }
 .doc__hint {
   color: var(--text-3);
   font-size: 12.5px;
   max-width: 62ch;
+}
+
+/* A section with nothing to put in the rail should not leave a 208px hole. */
+.doc__section:not(:has(> .doc__head)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.doc__section:not(:has(> .doc__head)) > *:not(.doc__head) {
+  grid-column: 1;
+}
+
+/* Narrower than this the rail squeezes headings to two words a line. */
+@media (max-width: 1100px) {
+  .doc {
+    padding: 22px 22px 80px;
+  }
+  .doc__section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .doc__head {
+    grid-row: auto;
+    margin-bottom: 16px;
+  }
+  .doc__section > *:not(.doc__head) {
+    grid-column: 1;
+  }
 }
 .doc__row {
   display: grid;
@@ -1913,6 +1930,13 @@ kbd {
   line-height: 1.6;
   resize: vertical;
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+/* A scrollbar inside a field on a page that already scrolls means you cannot
+   read back what you wrote without hunting for it. These grow instead. */
+.doc textarea.textarea--auto {
+  min-height: 80px;
+  overflow: hidden;
+  resize: none;
 }
 .doc textarea::placeholder {
   color: var(--text-3);

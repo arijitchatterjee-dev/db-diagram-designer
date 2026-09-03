@@ -1,0 +1,315 @@
+/* ==========================================================================
+   App shell
+   Sidebar plus a content column. Replaces the single top bar that used to
+   carry the brand, the navigation and the page's own actions in one row.
+   ========================================================================== */
+
+:root {
+  --sidebar-w: 232px;
+  --sidebar-w-collapsed: 56px;
+  --topbar-h: 52px;
+  /* The reading column, and the heading rail down its left edge. */
+  --doc-w: 1000px;
+  --doc-rail: 208px;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  height: 100%;
+  transition: grid-template-columns 0.16s ease;
+}
+.shell.is-collapsed {
+  grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
+}
+.shell__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.sidebar__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--topbar-h);
+  flex: none;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.sidebar__head .brand {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.sidebar__head .brand__text {
+  white-space: nowrap;
+}
+.sidebar__collapse,
+.sidebar__closemobile {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.sidebar__collapse:hover,
+.sidebar__closemobile:hover {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--line-2);
+}
+/* Only the drawer needs a close button. */
+.sidebar__closemobile {
+  display: none;
+}
+
+.sidebar__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.snav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 0;
+}
+.snav__item:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.snav__item.is-active {
+  color: var(--text);
+  background: var(--surface-3);
+}
+/* The accent marks where you are, and nothing else in here. */
+.snav__item.is-active .snav__icon {
+  color: var(--accent);
+}
+.snav__item--quiet {
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.snav__icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--text-3);
+}
+/* Projects in the list get a letter rather than a repeated icon. */
+.snav__icon--dot {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.snav__truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.snav__group {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.snav__label {
+  padding: 0 9px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.snav__project {
+  padding: 0 9px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__foot {
+  position: relative;
+  flex: none;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+.sidebar__foot .account__trigger {
+  width: 100%;
+}
+/* The menu opens upward: there is nothing below it. */
+.account__menu--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  right: 8px;
+}
+
+/* ---------- collapsed ---------- */
+
+.sidebar.is-collapsed .sidebar__hide {
+  display: none;
+}
+.sidebar.is-collapsed .sidebar__head {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar.is-collapsed .brand {
+  flex: none;
+}
+.sidebar.is-collapsed .snav__item,
+.sidebar.is-collapsed .account__trigger {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar.is-collapsed .snav__group {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+/* The brand goes rather than the toggle: 56px fits one control, and Projects
+   sits right below as the way back to the list. */
+.sidebar.is-collapsed .sidebar__collapse {
+  width: 30px;
+  height: 30px;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  height: var(--topbar-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.topbar:empty {
+  display: none;
+}
+.topbar__spacer {
+  margin-left: auto;
+}
+.topbar__burger {
+  display: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.topbar__burger:hover {
+  color: var(--text);
+}
+
+.sidebar__scrim {
+  display: none;
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 860px) {
+  .shell,
+  .shell.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Off-canvas rather than squeezed: at this width a permanent sidebar would
+     leave nothing for the thing you came to read. */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 70;
+    width: var(--sidebar-w);
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+  }
+  .sidebar.is-open {
+    transform: none;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  /* Collapsing is a desktop affordance; the drawer is either open or not. */
+  .sidebar.is-collapsed .sidebar__hide {
+    display: revert;
+  }
+  .sidebar.is-collapsed .snav__item,
+  .sidebar.is-collapsed .account__trigger,
+  .sidebar.is-collapsed .sidebar__head {
+    justify-content: flex-start;
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+  .sidebar__collapse {
+    display: none;
+  }
+  .sidebar__closemobile {
+    display: grid;
+  }
+
+  .sidebar__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(6, 8, 11, 0.6);
+  }
+
+  .topbar__burger {
+    display: grid;
+  }
+  .topbar:empty {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .sidebar {
+    transition: none;
+  }
+}

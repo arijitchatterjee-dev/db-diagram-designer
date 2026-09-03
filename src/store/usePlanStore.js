@@ -37,7 +37,18 @@ export const usePlanStore = create((set, get) => ({
     set({ ...initialState });
   },
 
-  async loadPlan(projectId) {
+  /**
+   * Loads a project's plan, and does nothing if it is already loaded.
+   *
+   * Moving between the plan and architecture tabs remounts a page and calls
+   * this again. Refetching there would discard edits that have not autosaved
+   * yet, so a plan already in memory for this project is kept. A different
+   * project, or `force`, reloads from scratch.
+   */
+  async loadPlan(projectId, { force = false } = {}) {
+    const state = get();
+    if (!force && state.project?._id === projectId && !state.loading) return;
+
     set({ ...initialState, loading: true });
     try {
       const { project, plan } = await planApi.getPlan(projectId);

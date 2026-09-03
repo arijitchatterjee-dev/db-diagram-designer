@@ -1,5 +1,7 @@
 import { CANDIDATES, LAYER_ORDER, candidatesForLayer } from './catalog.js';
 import { MODULES, findModule } from './modules.js';
+import { ARCHITECTURE_ORDER, candidatesFor } from './architecture.js';
+import { CONCERNS, findConcernOption } from './concerns.js';
 
 // Two candidates this close is not a recommendation, it is a coin flip, and
 // saying so is more useful than picking one and sounding certain.
@@ -14,23 +16,43 @@ function matchesValue(expected, actual) {
   return Array.isArray(expected) ? expected.includes(actual) : expected === actual;
 }
 
-function ruleMatches(rule, answers, chosen) {
+/**
+ * Facts derived from the plan rather than answered in the wizard: how many
+ * modules are selected, whether one of them handles money. Numbers are matched
+ * with `{ min, max }` because "eight or more features" is the shape those rules
+ * actually want; everything else matches by value.
+ */
+function matchesFact(expected, actual) {
+  if (expected !== null && typeof expected === 'object' && !Array.isArray(expected)) {
+    if (typeof actual !== 'number') return false;
+    if (expected.min !== undefined && actual < expected.min) return false;
+    if (expected.max !== undefined && actual > expected.max) return false;
+    return true;
+  }
+  if (typeof expected === 'boolean') return actual === expected;
+  return matchesValue(expected, actual);
+}
+
+function ruleMatches(rule, answers, chosen, facts = {}) {
   for (const [key, expected] of Object.entries(rule.when ?? {})) {
     if (!matchesValue(expected, answers[key])) return false;
   }
   for (const [layer, expected] of Object.entries(rule.whenChoice ?? {})) {
     if (!matchesValue(expected, chosen[layer])) return false;
   }
+  for (const [key, expected] of Object.entries(rule.whenFact ?? {})) {
+    if (!matchesFact(expected, facts[key])) return false;
+  }
   return true;
 }
 
-function scoreCandidate(candidate, answers, chosen) {
+function scoreCandidate(candidate, answers, chosen, facts) {
   let score = 0;
   const forReasons = [];
   const againstReasons = [];
 
   for (const rule of candidate.rules) {
-    if (!ruleMatches(rule, answers, chosen)) continue;
+    if (!ruleMatches(rule, answers, chosen, facts)) continue;
     score += rule.points;
     if (rule.points > 0) forReasons.push({ points: rule.points, text: rule.because });
     else if (rule.points < 0) againstReasons.push({ points: rule.points, text: rule.because });
@@ -174,6 +196,244 @@ export function scaleNotes(answers = {}, stack = []) {
   return notes;
 }
 
+// ----------------------------------------------------------- architecture
+
+/**
+ * Facts the architecture rules read that the wizard never asked about. Derived
+ * from the plan, so changing the module selection changes the architecture.
+ */
+export function architectureFacts(plan = {}, stack = []) {
+  const moduleKeys = plan.moduleKeys ?? [];
+  const MONEY = new Set(['checkout', 'billing', 'payouts', 'orders', 'sales']);
+
+  return {
+    moduleCount: moduleKeys.length,
+    hasPayments: moduleKeys.some((key) => MONEY.has(key)),
+    hasRealtime: plan.answers?.realtime === 'live',
+    stack,
+  };
+}
+
+function chosenFromStack(stack = []) {
+  const chosen = {};
+  for (const row of stack) {
+    if (row && !row.undecided && row.choice) chosen[row.layer] = row.choice;
+  }
+  return chosen;
+}
+
+/**
+ * Layering and topology, scored the same way the stack is.
+ *
+ * Resolved in order so topology can react to the layering choice: "the code is
+ * already organised by feature, so the deployment shape matches it" is only a
+ * reason once layering is settled.
+ */
+export function recommendArchitecture(answers = {}, facts = {}) {
+  const chosen = chosenFromStack(facts.stack);
+  const out = {};
+
+  for (const dimension of ARCHITECTURE_ORDER) {
+    const scored = candidatesFor(dimension)
+      .map((candidate) => scoreCandidate(candidate, answers, chosen, facts))
+      .sort((a, b) => b.score - a.score);
+
+    const [best, runnerUp] = scored;
+
+    if (!best || best.score <= 0) {
+      out[dimension] = {
+        dimension,
+        choice: null,
+        name: null,
+        score: best?.score ?? 0,
+        reasons: [],
+        concerns: [],
+        alternatives: [],
+        tossUp: false,
+        undecided: true,
+        breaksAt: null,
+      };
+      continue;
+    }
+
+    chosen[dimension] = best.candidate.key;
+
+    out[dimension] = {
+      dimension,
+      choice: best.candidate.key,
+      name: best.candidate.name,
+      summary: best.candidate.summary,
+      score: best.score,
+      reasons: best.reasons,
+      concerns: best.concerns,
+      alternatives: scored
+        .slice(1)
+        .filter((entry) => entry.reasons.length > 0 || entry.concerns.length > 0)
+        .slice(0, MAX_ALTERNATIVES)
+        .map((entry) => ({
+          choice: entry.candidate.key,
+          name: entry.candidate.name,
+          score: entry.score,
+          why: entry.reasons[0] ?? '',
+          tradeoff: entry.concerns[0] ?? best.reasons[0] ?? '',
+          ruledOut: entry.score <= 0,
+        })),
+      tossUp: Boolean(runnerUp) && best.score - runnerUp.score <= TOSSUP_MARGIN && runnerUp.score > 0,
+      undecided: false,
+      breaksAt: best.candidate.breaksAt ?? null,
+    };
+  }
+
+  return out;
+}
+
+/** One decision per cross-cutting concern, with the rule that produced it. */
+export function recommendConcerns(answers = {}, facts = {}, architecture = {}) {
+  const chosen = {
+    ...chosenFromStack(facts.stack),
+    layering: architecture.layering?.choice ?? null,
+    topology: architecture.topology?.choice ?? null,
+  };
+
+  return CONCERNS.map((concern) => {
+    const scored = concern.options
+      .map((option) => scoreCandidate(option, answers, chosen, facts))
+      .sort((a, b) => b.score - a.score);
+
+    const [best] = scored;
+    if (!best || best.score <= 0) {
+      return { key: concern.key, label: concern.label, choice: null, reason: '', alternatives: [], undecided: true };
+    }
+
+    return {
+      key: concern.key,
+      label: concern.label,
+      choice: best.candidate.key,
+      name: best.candidate.name,
+      reason: best.reasons[0] ?? '',
+      reasons: best.reasons,
+      concerns: best.concerns,
+      alternatives: scored
+        .slice(1)
+        .filter((entry) => entry.reasons.length > 0 || entry.concerns.length > 0)
+        .slice(0, MAX_ALTERNATIVES)
+        .map((entry) => ({
+          choice: entry.candidate.key,
+          name: entry.candidate.name,
+          why: entry.reasons[0] ?? '',
+          tradeoff: entry.concerns[0] ?? '',
+          ruledOut: entry.score <= 0,
+        })),
+      undecided: false,
+    };
+  });
+}
+
+/**
+ * Replaces the engine's architecture picks with yours.
+ *
+ * Applied on top of a fresh run, exactly like the stack: changing an answer
+ * re-reasons everything while your decisions stay yours, and an overridden
+ * choice still carries its real reasons and objections under the current
+ * answers so you can see what you are trading away.
+ */
+export function applyArchitectureOverrides(architecture, overrides = {}, answers = {}, facts = {}) {
+  const chosen = {
+    ...chosenFromStack(facts.stack),
+    layering: overrides.layering ?? architecture.layering?.choice ?? null,
+    topology: overrides.topology ?? architecture.topology?.choice ?? null,
+  };
+
+  const out = {};
+  for (const dimension of ARCHITECTURE_ORDER) {
+    const row = architecture[dimension];
+    const choice = overrides[dimension];
+
+    if (!choice || choice === row?.choice) {
+      out[dimension] = row;
+      continue;
+    }
+
+    const candidate = candidatesFor(dimension).find((c) => c.key === choice);
+    if (!candidate) {
+      out[dimension] = row;
+      continue;
+    }
+
+    const scored = scoreCandidate(candidate, answers, chosen, facts);
+    out[dimension] = {
+      ...row,
+      choice: candidate.key,
+      name: candidate.name,
+      summary: candidate.summary,
+      reasons: scored.reasons,
+      concerns: scored.concerns,
+      breaksAt: candidate.breaksAt ?? null,
+      overridden: true,
+      // Kept so the UI can offer to go back to it.
+      enginePick: row?.undecided ? null : { choice: row?.choice, name: row?.name },
+      undecided: false,
+      tossUp: false,
+    };
+  }
+  return out;
+}
+
+/** The same, for the one decision per cross-cutting concern. */
+export function applyConcernOverrides(concerns, overrides = {}) {
+  return concerns.map((concern) => {
+    const choice = overrides[concern.key];
+    if (!choice || choice === concern.choice) return concern;
+
+    const option = findConcernOption(concern.key, choice);
+    if (!option) return concern;
+
+    return {
+      ...concern,
+      choice: option.key,
+      name: option.name,
+      // The engine did not argue for this one, so there is no rule to quote.
+      reason: '',
+      overridden: true,
+      enginePick: concern.undecided ? null : { choice: concern.choice, name: concern.name },
+      undecided: false,
+    };
+  });
+}
+
+/** Turns architecture output into the rows the API stores. */
+export function toArchitectureRows(architecture, notes = {}) {
+  const row = (entry, key) => ({
+    choice: entry?.undecided ? '' : entry?.choice ?? '',
+    reasons: entry?.reasons ?? [],
+    alternatives: (entry?.alternatives ?? []).map((alt) => ({
+      choice: alt.choice,
+      why: alt.why,
+      tradeoff: alt.tradeoff,
+    })),
+    overridden: entry?.overridden === true,
+    // Your own note on the decision, which no re-run may discard.
+    note: notes[key] ?? '',
+  });
+
+  return {
+    layering: row(architecture.layering, 'layering'),
+    topology: row(architecture.topology, 'topology'),
+  };
+}
+
+export function toConcernRows(concerns, notes = {}) {
+  return concerns
+    .filter((concern) => !concern.undecided)
+    .map((concern) => ({
+      key: concern.key,
+      choice: concern.choice,
+      reason: concern.reason,
+      note: notes[concern.key] ?? '',
+      overridden: concern.overridden === true,
+    }));
+}
+
 /**
  * Replaces the engine's pick for a layer with the one you chose.
  *
@@ -238,22 +498,45 @@ export function toStackRows(recommendations) {
 // ---------------------------------------------------------------- modules
 
 /**
+ * Built-in modules plus the ones you defined, with yours winning a collision.
+ *
+ * Naming a custom module `auth` replaces the built-in for that project rather
+ * than erroring: your product's idea of authentication is more authoritative
+ * than the catalogue's. The UI is where that has to be said out loud.
+ *
+ * Custom modules carry `entities` only after `hydrateCustomModules` has parsed
+ * their DBML; before that they contribute endpoints but no tables.
+ */
+export function moduleIndex(customModules = []) {
+  const byKey = new Map(MODULES.map((module) => [module.key, module]));
+  for (const module of customModules) {
+    if (module?.key) byKey.set(module.key, { entities: [], apis: [], dependsOn: [], ...module });
+  }
+  return byKey;
+}
+
+function lookupIn(index, key) {
+  return index.get(key) ?? null;
+}
+
+/**
  * Pulls in what a selection depends on. Ticking `checkout` without `cart` is
  * not a plan, it is a gap, so the missing pieces are added and reported rather
  * than silently assumed.
  */
-export function resolveDependencies(keys = []) {
+export function resolveDependencies(keys = [], customModules = []) {
+  const index = moduleIndex(customModules);
   const selected = [];
   const added = [];
   const seen = new Set();
 
   const visit = (key, requiredBy) => {
     if (seen.has(key)) return;
-    const module = findModule(key);
+    const module = lookupIn(index, key);
     if (!module) return;
 
     seen.add(key);
-    for (const dependency of module.dependsOn) visit(dependency, key);
+    for (const dependency of module.dependsOn ?? []) visit(dependency, key);
 
     selected.push(key);
     if (requiredBy) added.push({ key, name: module.name, requiredBy });
@@ -261,8 +544,9 @@ export function resolveDependencies(keys = []) {
 
   for (const key of keys) visit(key, null);
 
-  // Catalogue order, so the result does not depend on click order.
-  const order = MODULES.map((module) => module.key);
+  // Catalogue order first, then custom modules in the order they were defined,
+  // so the result does not depend on click order.
+  const order = [...MODULES.map((module) => module.key), ...customModules.map((m) => m.key)];
   selected.sort((a, b) => order.indexOf(a) - order.indexOf(b));
 
   return { keys: selected, added };
@@ -272,7 +556,8 @@ export function resolveDependencies(keys = []) {
  * Removing a module also removes anything that depended on it, since leaving
  * `checkout` behind after dropping `cart` would leave a broken plan.
  */
-export function removeModule(keys = [], target) {
+export function removeModule(keys = [], target, customModules = []) {
+  const index = moduleIndex(customModules);
   const remaining = keys.filter((key) => key !== target);
   const dropped = [];
 
@@ -280,9 +565,9 @@ export function removeModule(keys = [], target) {
   while (changed) {
     changed = false;
     for (const key of [...remaining]) {
-      const module = findModule(key);
+      const module = lookupIn(index, key);
       if (!module) continue;
-      const missing = module.dependsOn.find((dep) => !remaining.includes(dep));
+      const missing = (module.dependsOn ?? []).find((dep) => !remaining.includes(dep));
       if (missing) {
         remaining.splice(remaining.indexOf(key), 1);
         dropped.push({ key, name: module.name, because: missing });
@@ -294,11 +579,18 @@ export function removeModule(keys = [], target) {
   return { keys: remaining, dropped };
 }
 
-export function apisFor(keys = []) {
+export function apisFor(keys = [], customModules = []) {
+  const index = moduleIndex(customModules);
   return keys.flatMap((key) => {
-    const module = findModule(key);
+    const module = lookupIn(index, key);
     if (!module) return [];
-    return module.apis.map((api) => ({ moduleKey: key, ...api }));
+    return (module.apis ?? []).map((api) => ({
+      moduleKey: key,
+      method: api.method,
+      path: api.path,
+      purpose: api.purpose ?? '',
+      auth: api.auth !== false,
+    }));
   });
 }
 
@@ -307,14 +599,15 @@ export function apisFor(keys = []) {
  * in the selection is dropped: a relationship to a table nobody created would
  * fail to parse as DBML.
  */
-export function entitiesFor(keys = []) {
+export function entitiesFor(keys = [], customModules = []) {
+  const index = moduleIndex(customModules);
   const entities = [];
   const seen = new Set();
 
   for (const key of keys) {
-    const module = findModule(key);
+    const module = lookupIn(index, key);
     if (!module) continue;
-    for (const entity of module.entities) {
+    for (const entity of module.entities ?? []) {
       if (seen.has(entity.name)) continue;
       seen.add(entity.name);
       entities.push({ ...entity, moduleKey: key });
@@ -332,13 +625,35 @@ export function entitiesFor(keys = []) {
   }));
 }
 
-export function blueprintKeysFor(keys = []) {
+export function blueprintKeysFor(keys = [], customModules = []) {
+  const index = moduleIndex(customModules);
   const blueprints = new Set();
   for (const key of keys) {
-    const module = findModule(key);
+    const module = lookupIn(index, key);
     if (module?.blueprintKey) blueprints.add(module.blueprintKey);
   }
   return [...blueprints];
+}
+
+/**
+ * Which module owns each table name in a selection.
+ *
+ * Two modules declaring the same table is not an error the parser can catch:
+ * `entitiesFor` silently keeps the first. This is what lets the editor say so
+ * while you are still typing, which is the only useful moment.
+ */
+export function tableOwners(keys = [], customModules = []) {
+  const index = moduleIndex(customModules);
+  const owners = new Map();
+
+  for (const key of keys) {
+    const module = lookupIn(index, key);
+    for (const entity of module?.entities ?? []) {
+      if (!owners.has(entity.name)) owners.set(entity.name, []);
+      owners.get(entity.name).push(key);
+    }
+  }
+  return owners;
 }
 
 export { CANDIDATES, LAYER_ORDER };

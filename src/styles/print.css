@@ -47,13 +47,19 @@
     background: #fff;
     color: #111;
   }
-  .app-shell {
+  .shell,
+  .shell.is-collapsed {
     display: block;
     height: auto;
   }
+  .shell__main {
+    display: block;
+  }
 
   /* Everything that is an editor rather than a document. */
-  .navbar,
+  .sidebar,
+  .sidebar__scrim,
+  .topbar,
   .doc,
   .wizard,
   .alert,
@@ -192,6 +198,20 @@
     display: table-header-group;
   }
   .printable__table tr {
+    break-inside: avoid;
+  }
+}
+
+@media print {
+  .printable__tree {
+    margin: 0;
+    padding: 6pt 8pt;
+    border: 0.5pt solid #ccc;
+    background: #fafafa;
+    font-family: var(--mono);
+    font-size: 8.5pt;
+    line-height: 1.45;
+    white-space: pre;
     break-inside: avoid;
   }
 }

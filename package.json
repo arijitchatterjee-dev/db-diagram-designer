@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/engine/engine.test.mjs && node src/engine/generate.test.mjs && node src/engine/spec.test.mjs && node src/utils/pipeline.test.mjs && node src/utils/completion.test.mjs && node src/utils/export.test.mjs"
+    "test": "node src/engine/engine.test.mjs && node src/engine/architecture.test.mjs && node src/engine/decisions.test.mjs && node src/engine/custom.test.mjs && node src/engine/generate.test.mjs && node src/engine/spec.test.mjs && node src/utils/pipeline.test.mjs && node src/utils/completion.test.mjs && node src/utils/export.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

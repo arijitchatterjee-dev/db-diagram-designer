@@ -9,11 +9,24 @@ import { labelFor, LAYERS } from '../../engine/planOptions';
  * in both places, and there is one implementation of the override control
  * rather than two that drift.
  */
-export default function StackLayer({ row, onOverride, onClearOverride }) {
+export default function StackLayer({
+  row,
+  onOverride,
+  onClearOverride,
+  // Architecture rows are the same shape but not stack layers, so the label,
+  // the options and the key passed back are overridable. Left alone, this
+  // behaves exactly as it did for the stack.
+  label,
+  options,
+  dimension,
+}) {
+  const key = dimension ?? row.layer;
+  const choices = options ?? candidatesForLayer(row.layer);
+
   return (
     <section className={`layer${row.undecided ? ' is-undecided' : ''}`}>
       <div className="layer__head">
-        <span className="layer__name">{labelFor(LAYERS, row.layer)}</span>
+        <span className="layer__name">{label ?? labelFor(LAYERS, row.layer)}</span>
 
         {row.undecided ? (
           <span className="layer__choice layer__choice--none">Undecided</span>
@@ -36,7 +49,7 @@ export default function StackLayer({ row, onOverride, onClearOverride }) {
           <button
             type="button"
             className="linkish"
-            onClick={() => onClearOverride(row.layer)}
+            onClick={() => onClearOverride(key)}
             title={`Go back to ${row.enginePick.name}`}
           >
             <ArrowUUpLeft size={12} weight="bold" />
@@ -102,11 +115,11 @@ export default function StackLayer({ row, onOverride, onClearOverride }) {
           className="select select--inline"
           value={row.overridden ? row.choice : ''}
           onChange={(e) =>
-            e.target.value ? onOverride(row.layer, e.target.value) : onClearOverride(row.layer)
+            e.target.value ? onOverride(key, e.target.value) : onClearOverride(key)
           }
         >
           <option value="">{row.undecided ? 'Pick one' : `Recommended: ${row.name}`}</option>
-          {candidatesForLayer(row.layer).map((candidate) => (
+          {choices.map((candidate) => (
             <option key={candidate.key} value={candidate.key}>
               {candidate.name}
             </option>

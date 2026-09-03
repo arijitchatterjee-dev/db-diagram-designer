@@ -1,5 +1,8 @@
 import { specSections } from '../../engine/buildSpec';
 import { labelFor, PRESETS } from '../../engine/planOptions';
+import { findArchitecture } from '../../engine/architecture';
+import { findConcern, findConcernOption } from '../../engine/concerns';
+import { renderTreeText } from '../../engine/folders';
 
 /**
  * The plan as a document rather than an editor.
@@ -64,6 +67,95 @@ export default function PrintableSpec({ projectName, plan, stack, selectedModule
                   <li key={reason}>{reason}</li>
                 ))}
               </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(plan.architecture?.layering?.choice || plan.architecture?.topology?.choice) && (
+        <section>
+          <h2>Architecture</h2>
+          {[
+            ['layering', 'Layering'],
+            ['topology', 'Deployment'],
+          ].map(([dimension, label]) => {
+            const row = plan.architecture[dimension];
+            if (!row?.choice) return null;
+            const candidate = findArchitecture(dimension, row.choice);
+            return (
+              <div className="printable__layer" key={dimension}>
+                <h3>
+                  {label}: {candidate?.name ?? row.choice}
+                  {row.overridden && <em> (chosen over the recommendation)</em>}
+                </h3>
+                <ul>
+                  {(row.reasons ?? []).map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+
+          {(plan.architecture.concerns ?? []).filter((c) => c.choice).length > 0 && (
+            <table className="printable__table">
+              <thead>
+                <tr>
+                  <th>Concern</th>
+                  <th>Decision</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.architecture.concerns
+                  .filter((concern) => concern.choice)
+                  .map((concern) => (
+                    <tr key={concern.key}>
+                      <td>{findConcern(concern.key)?.label ?? concern.key}</td>
+                      <td>{findConcernOption(concern.key, concern.choice)?.name ?? concern.choice}</td>
+                      <td>{concern.reason || concern.note || 'Your own call.'}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {(plan.folders?.tree ?? []).length > 0 && (
+        <section>
+          <h2>Folder structure</h2>
+          <pre className="printable__tree">{renderTreeText(plan.folders.tree)}</pre>
+        </section>
+      )}
+
+      {(plan.architecture?.decisions ?? []).length > 0 && (
+        <section>
+          <h2>Decision log</h2>
+          {plan.architecture.decisions.map((entry) => (
+            <div className="printable__layer" key={entry.id}>
+              <h3>
+                {entry.title}
+                {entry.date && <em> ({entry.date})</em>}
+              </h3>
+              {entry.choice && (
+                <p>
+                  <strong>Decided:</strong> {entry.choice}
+                </p>
+              )}
+              {entry.context && <p>{entry.context}</p>}
+              {(entry.rejected ?? []).length > 0 && (
+                <ul>
+                  {entry.rejected.map((item) => (
+                    <li key={item}>Set aside: {item}</li>
+                  ))}
+                </ul>
+              )}
+              {entry.consequence && (
+                <p>
+                  <strong>Costs later:</strong> {entry.consequence}
+                </p>
+              )}
             </div>
           ))}
         </section>

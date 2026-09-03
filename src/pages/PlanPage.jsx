@@ -11,8 +11,7 @@ import {
   Trash,
   WarningCircle,
 } from '@phosphor-icons/react';
-import Navbar from '../components/layout/Navbar';
-import ProjectTabs from '../components/layout/ProjectTabs';
+import AppShell from '../components/layout/AppShell';
 import EditableTitle from '../components/editor/EditableTitle';
 import SaveState from '../components/ui/SaveState';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -21,6 +20,16 @@ import ApiTable from '../components/plan/ApiTable';
 import PlanAnswers from '../components/plan/PlanAnswers';
 import PlanModules from '../components/plan/PlanModules';
 import PlanChecklists from '../components/plan/PlanChecklists';
+import ModuleEditorDialog from '../components/plan/ModuleEditorDialog';
+import ModuleLibraryDialog from '../components/plan/ModuleLibraryDialog';
+import {
+  hydrateCustomModules,
+  hydrateCustomModule,
+  stripAll,
+  blankModule,
+} from '../engine/customModules';
+import { tableOwners } from '../engine/recommend';
+import * as moduleApi from '../api/moduleApi';
 import GenerateSchemaDialog from '../components/plan/GenerateSchemaDialog';
 import ExportMenu from '../components/plan/ExportMenu';
 import PlanReasoning from '../components/plan/PlanReasoning';
@@ -32,6 +41,7 @@ import {
   appendMissingTables,
   isUntouchedSchema,
 } from '../engine/generateDbml';
+import AutoTextarea from '../components/common/AutoTextarea';
 import { usePlanStore } from '../store/usePlanStore';
 import { PRESETS, STATUSES } from '../engine/planOptions';
 import {
@@ -67,7 +77,6 @@ export default function PlanPage() {
   const patch = usePlanStore((s) => s.patch);
   const save = usePlanStore((s) => s.save);
   const removePlan = usePlanStore((s) => s.removePlan);
-  const reset = usePlanStore((s) => s.reset);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -86,10 +95,21 @@ export default function PlanPage() {
   const [aiUnavailable, setAiUnavailable] = useState(false);
   const [aiError, setAiError] = useState(null);
 
+  // Custom modules carry their parsed tables, which the plan never stores.
+  // Hydrating once here keeps every engine call downstream synchronous.
+  const [hydrated, setHydrated] = useState([]);
+  const [editingModule, setEditingModule] = useState(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [library, setLibrary] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryBusy, setLibraryBusy] = useState(null);
+
+  // Deliberately no reset on unmount: switching to the architecture tab
+  // remounts this page, and dropping the store there would discard edits that
+  // have not autosaved yet. `loadPlan` resets when the project changes.
   useEffect(() => {
     loadPlan(id);
-    return () => reset();
-  }, [id, loadPlan, reset]);
+  }, [id, loadPlan]);
 
   useEffect(() => {
     setSelectedModules(project?.selectedModules ?? []);
@@ -151,10 +171,20 @@ export default function PlanPage() {
     () => applyOverrides(recommendStack(plan?.answers ?? {}), overrides, plan?.answers ?? {}),
     [plan?.answers, overrides]
   );
-  const entities = useMemo(() => entitiesFor(plan?.moduleKeys ?? []), [plan?.moduleKeys]);
+  const entities = useMemo(
+    () => entitiesFor(plan?.moduleKeys ?? [], hydrated),
+    [plan?.moduleKeys, hydrated]
+  );
+  const owners = useMemo(
+    () => tableOwners(plan?.moduleKeys ?? [], hydrated),
+    [plan?.moduleKeys, hydrated]
+  );
   const notes = useMemo(() => scaleNotes(plan?.answers ?? {}, stack), [plan?.answers, stack]);
   const apis = plan?.apis ?? [];
-  const derivedApis = useMemo(() => apisFor(plan?.moduleKeys ?? []), [plan?.moduleKeys]);
+  const derivedApis = useMemo(
+    () => apisFor(plan?.moduleKeys ?? [], hydrated),
+    [plan?.moduleKeys, hydrated]
+  );
   const apisStale =
     apis.length > 0 &&
     JSON.stringify(apis.map((a) => `${a.method} ${a.path}`).sort()) !==
@@ -198,7 +228,9 @@ export default function PlanPage() {
   function toggleModule(key) {
     const current = plan.moduleKeys ?? [];
     const isOn = current.includes(key);
-    const result = isOn ? removeModule(current, key) : resolveDependencies([...current, key]);
+    const result = isOn
+      ? removeModule(current, key, hydrated)
+      : resolveDependencies([...current, key], hydrated);
     const knockOn = isOn ? result.dropped : result.added;
 
     setNotice(
@@ -209,6 +241,127 @@ export default function PlanPage() {
         : null
     );
     patch({ moduleKeys: result.keys });
+  }
+
+  // The stored plan carries DBML; the engine wants tables. Parsed once here,
+  // and again whenever the stored modules change.
+  useEffect(() => {
+    let cancelled = false;
+    hydrateCustomModules(plan?.customModules ?? []).then((next) => {
+      if (!cancelled) setHydrated(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [plan?.customModules]);
+
+  async function saveModule(draft) {
+    const existing = plan.customModules ?? [];
+    const isNew = !existing.some((m) => m.key === editingModule?.original);
+    const stored = stripAll([draft])[0];
+
+    const next = isNew
+      ? [...existing, stored]
+      : existing.map((m) => (m.key === editingModule.original ? stored : m));
+
+    // A renamed key has to follow into the selection, or the module silently
+    // drops out of the plan it was already part of.
+    let keys = plan.moduleKeys ?? [];
+    if (isNew) keys = resolveDependencies([...keys, stored.key], await hydrateCustomModules(next)).keys;
+    else if (editingModule.original !== stored.key) {
+      keys = keys.map((k) => (k === editingModule.original ? stored.key : k));
+    }
+
+    patch({ customModules: next, moduleKeys: keys });
+    setEditingModule(null);
+  }
+
+  function removeCustomModule(key) {
+    const remaining = (plan.customModules ?? []).filter((m) => m.key !== key);
+    const result = removeModule(plan.moduleKeys ?? [], key, hydrated);
+    patch({ customModules: remaining, moduleKeys: result.keys });
+  }
+
+  async function openLibrary() {
+    setLibraryOpen(true);
+    setLibraryLoading(true);
+    try {
+      setLibrary(await moduleApi.listModules());
+    } catch (err) {
+      setPageError(apiErrorMessage(err, 'Could not load your module library'));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  /**
+   * Inserting copies. From here the plan's version is its own, and editing the
+   * library later never reaches back into it.
+   */
+  async function insertFromLibrary(definition) {
+    setLibraryBusy(definition.key);
+    try {
+      const copy = {
+        key: definition.key,
+        name: definition.name,
+        summary: definition.summary,
+        dbml: definition.dbml,
+        apis: definition.apis.map((api) => ({ moduleKey: definition.key, ...api })),
+        dependsOn: [...definition.dependsOn],
+        blueprintKey: definition.blueprintKey,
+        libraryKey: definition.key,
+      };
+      const next = [...(plan.customModules ?? []).filter((m) => m.key !== copy.key), copy];
+      const keys = resolveDependencies(
+        [...(plan.moduleKeys ?? []), copy.key],
+        await hydrateCustomModules(next)
+      ).keys;
+
+      patch({ customModules: next, moduleKeys: keys });
+      setLibraryOpen(false);
+    } finally {
+      setLibraryBusy(null);
+    }
+  }
+
+  async function saveToLibrary(draft) {
+    setLibraryBusy(draft.key);
+    setPageError(null);
+    try {
+      const payload = {
+        key: draft.key,
+        name: draft.name,
+        summary: draft.summary,
+        dbml: draft.dbml,
+        apis: draft.apis.map(({ method, path, purpose, auth }) => ({ method, path, purpose, auth })),
+        dependsOn: draft.dependsOn,
+        blueprintKey: draft.blueprintKey,
+      };
+
+      const existing = library.length ? library : await moduleApi.listModules();
+      const match = existing.find((m) => m.key === draft.key);
+      const saved = match
+        ? await moduleApi.updateModule(match._id, payload)
+        : await moduleApi.createModule(payload);
+
+      setLibrary((list) => [...list.filter((m) => m._id !== saved._id), saved]);
+      setEditingModule((current) =>
+        current ? { ...current, module: { ...current.module, libraryKey: saved.key } } : current
+      );
+    } catch (err) {
+      setPageError(apiErrorMessage(err, 'Could not save to the library'));
+    } finally {
+      setLibraryBusy(null);
+    }
+  }
+
+  async function deleteFromLibrary(definition) {
+    try {
+      await moduleApi.deleteModule(definition._id);
+      setLibrary((list) => list.filter((m) => m._id !== definition._id));
+    } catch (err) {
+      setPageError(apiErrorMessage(err, 'Could not delete that module'));
+    }
   }
 
   const editApi = (index, changes) =>
@@ -378,20 +531,18 @@ export default function PlanPage() {
 
   if (loading) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <CircleNotch size={20} weight="bold" className="spin" />
           <p>Opening plan</p>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   if (loadError) {
     return (
-      <div className="app-shell">
-        <Navbar />
+      <AppShell>
         <div className="center">
           <span className="blank__icon">
             <WarningCircle size={20} weight="fill" />
@@ -402,24 +553,19 @@ export default function PlanPage() {
             Back to projects
           </Link>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   const decided = stack.filter((row) => !row.undecided).length;
 
   return (
-    <div className="app-shell">
-      <Navbar>
-        <Link to="/" className="back" title="Back to projects">
-          <ArrowLeft size={15} weight="bold" />
-        </Link>
+    <AppShell topbar={<>
 
         <EditableTitle value={project?.name ?? ''} onChange={renameProject} />
 
-        <ProjectTabs projectId={id} />
 
-        <span className="navbar__spacer" />
+        <span className="topbar__spacer" />
 
         {plan && <SaveState saving={saving} dirty={dirty} lastSavedAt={lastSavedAt} />}
 
@@ -443,7 +589,7 @@ export default function PlanPage() {
             Save
           </button>
         )}
-      </Navbar>
+      </>}>
 
       {(saveError || pageError) && (
         <p className="alert alert--error alert--bar" role="alert">
@@ -482,9 +628,8 @@ export default function PlanPage() {
 
               <div className="field">
                 <label htmlFor="plan-context">What is it</label>
-                <textarea
+                <AutoTextarea
                   id="plan-context"
-                  rows={4}
                   value={plan.context}
                   onChange={(e) => patch({ context: e.target.value })}
                   placeholder="A storefront for a small clothing brand, selling to customers in one country."
@@ -493,9 +638,8 @@ export default function PlanPage() {
 
               <div className="field">
                 <label htmlFor="plan-goal">What does done look like</label>
-                <textarea
+                <AutoTextarea
                   id="plan-goal"
-                  rows={3}
                   value={plan.goal}
                   onChange={(e) => patch({ goal: e.target.value })}
                   placeholder="Customers can browse, pay and track an order. I can manage stock."
@@ -579,10 +723,20 @@ export default function PlanPage() {
               </div>
               <PlanModules
                 moduleKeys={plan.moduleKeys ?? []}
+                customModules={hydrated}
                 entities={entities}
                 apiCount={apis.length}
                 notice={notice}
-                onToggle={toggleModule}
+                onToggle={(key) =>
+                  hydrated.some((m) => m.key === key) && (plan.moduleKeys ?? []).includes(key)
+                    ? removeCustomModule(key)
+                    : toggleModule(key)
+                }
+                onNewModule={() => setEditingModule({ module: blankModule(), original: null, isNew: true })}
+                onEditModule={(module) =>
+                  setEditingModule({ module, original: module.key, isNew: false })
+                }
+                onOpenLibrary={openLibrary}
               />
             </section>
 
@@ -691,6 +845,11 @@ export default function PlanPage() {
             </section>
 
             <section className="doc__section doc__section--quiet">
+              <div className="doc__head">
+                <h2>Start over</h2>
+                <p className="doc__hint">Redo the reasoning, or throw the plan away.</p>
+              </div>
+
               <div className="doc__danger">
                 <div>
                   <p className="doc__danger-title">Run the wizard again</p>
@@ -737,6 +896,32 @@ export default function PlanPage() {
         />
       )}
 
+      {editingModule && (
+        <ModuleEditorDialog
+          module={editingModule.module}
+          isNew={editingModule.isNew}
+          planModuleKeys={plan?.moduleKeys ?? []}
+          planCustomModules={hydrated}
+          tableOwners={owners}
+          savingToLibrary={libraryBusy === editingModule.module.key}
+          onSave={saveModule}
+          onSaveToLibrary={saveToLibrary}
+          onCancel={() => setEditingModule(null)}
+        />
+      )}
+
+      {libraryOpen && (
+        <ModuleLibraryDialog
+          modules={library}
+          loading={libraryLoading}
+          alreadyInPlan={(plan?.customModules ?? []).map((m) => m.key)}
+          busyKey={libraryBusy}
+          onInsert={insertFromLibrary}
+          onDelete={deleteFromLibrary}
+          onCancel={() => setLibraryOpen(false)}
+        />
+      )}
+
       {schemaPlan && (
         <GenerateSchemaDialog
           plan={schemaPlan}
@@ -754,6 +939,6 @@ export default function PlanPage() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />
-    </div>
+    </AppShell>
   );
 }
