@@ -1,0 +1,446 @@
+/* ==========================================================================
+   Planning conversation
+   Docked to the right of the plan document. Plan and conversation visible at
+   once, which is what approving a change to the plan will need.
+   ========================================================================== */
+
+:root {
+  --chat-w: 380px;
+}
+
+/* The document and the panel share the row; the document keeps the flex. */
+.withchat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--chat-w);
+  /* The row must be bounded, or the document grows to fit its content and
+     scrolls the whole page instead of scrolling inside itself. */
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+/* Closed, the document has the row to itself and behaves exactly as before. */
+.withchat--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--hair);
+}
+
+.chat__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 42px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--hair);
+}
+.chat__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.chat__title svg {
+  color: var(--accent);
+}
+.chat__spacer {
+  margin-left: auto;
+}
+.chat__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 0.3s var(--ease), background 0.3s var(--ease);
+}
+.chat__icon:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.chat__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- messages ---------- */
+
+.chat__msg {
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--text-2);
+}
+.chat__msg p + p {
+  margin-top: 10px;
+}
+
+/* Yours is a card, the reply is plain text. The reply is the long one and the
+   thing you actually read; boxing both would make the panel a wall of frames. */
+.chat__msg--mine {
+  align-self: flex-end;
+  max-width: 88%;
+  padding: 9px 12px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--lift);
+  color: var(--text);
+}
+.chat__msg.is-pending {
+  opacity: 0.55;
+}
+
+.chat__msg--failed {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  font-size: 12.5px;
+  color: #ffb3b5;
+}
+.chat__msg--failed svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat__msg {
+    animation: chat-in 0.4s var(--ease-out);
+  }
+}
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.chat__note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* ---------- empty state ---------- */
+
+.chat__empty {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+.chat__suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+.chat__suggest button {
+  padding: 8px 11px;
+  text-align: left;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.chat__suggest button:hover {
+  color: var(--text);
+  border-color: var(--hair-2);
+}
+
+/* ---------- composer ---------- */
+
+.chat__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: none;
+  margin: 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  font-size: 12px;
+  color: #ffb3b5;
+}
+.chat__error svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--danger);
+}
+
+.chat__foot {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+.chat__foot textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 9px 11px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.chat__foot textarea::placeholder {
+  color: var(--text-3);
+}
+.chat__foot textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+.chat__foot button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition: background 0.3s var(--ease), transform 0.28s var(--ease);
+}
+.chat__foot button:hover:not(:disabled) {
+  background: var(--accent-hi);
+}
+.chat__foot button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.chat__foot button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- the toggle in the top bar ---------- */
+
+.chat__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.chat__open:hover,
+.chat__open.is-on {
+  color: var(--accent);
+  border-color: rgba(245, 165, 36, 0.34);
+}
+
+/* ---------- narrow ---------- */
+
+/* Below this the two together leave neither enough room, so the panel takes
+   the screen and the document waits behind it. */
+@media (max-width: 1180px) {
+  .withchat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chat {
+    position: fixed;
+    inset: var(--topbar-h) 0 0 auto;
+    z-index: 50;
+    width: min(var(--chat-w), 100%);
+    box-shadow: -20px 0 50px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* ---------- a proposal ---------- */
+
+/* Inside the reply rather than beside it: the diff and the paragraph that
+   explains it are one thought, and splitting them makes the buttons look
+   like they belong to the conversation rather than to this change. */
+.prop {
+  margin-top: 12px;
+  border: 1px solid rgba(245, 165, 36, 0.28);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--lift);
+  overflow: hidden;
+}
+
+.prop__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--hair);
+  background: var(--accent-dim);
+}
+.prop__count {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.prop__state {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.prop__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.prop__rows li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--hair);
+}
+.prop__rows li:last-child {
+  border-bottom: none;
+}
+.prop__field {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.prop__vals {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 12.5px;
+}
+.prop__from {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-3);
+}
+.prop__from--none {
+  font-style: italic;
+  text-decoration: none;
+}
+.prop__arrow {
+  color: var(--text-3);
+}
+.prop__to {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prop__why {
+  padding: 9px 11px;
+  border-top: 1px solid var(--hair);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.prop__acts {
+  display: flex;
+  gap: 6px;
+  padding: 9px 11px;
+  border-top: 1px solid var(--hair);
+}
+.prop__acts button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s var(--ease), border-color 0.3s var(--ease),
+    transform 0.28s var(--ease);
+}
+.prop__acts button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.prop__acts button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Apply carries the accent; discard is quiet. Declining a suggestion is the
+   ordinary outcome and should not look like a warning. */
+.prop__apply {
+  flex: 1;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.prop__apply:hover:not(:disabled) {
+  background: var(--accent-hi);
+}
+.prop__discard {
+  border: 1px solid var(--hair-2);
+  background: transparent;
+  color: var(--text-3);
+}
+.prop__discard:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Settled proposals stay in the thread as a record of what was decided. */
+.prop--applied,
+.prop--discarded {
+  border-color: var(--hair);
+  opacity: 0.72;
+}
+.prop--applied .prop__head,
+.prop--discarded .prop__head {
+  background: transparent;
+}
+.prop--applied .prop__count {
+  color: #7fd1a0;
+}
+.prop--discarded .prop__count {
+  color: var(--text-3);
+}

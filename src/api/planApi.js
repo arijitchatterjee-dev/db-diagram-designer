@@ -5,7 +5,7 @@ import api from './axiosInstance';
  * diagram editor loads that on every open and has no use for a plan.
  *
  * `plan` is null for a project that has never been planned, which is not an
- * error — it is what puts the wizard on screen instead of the document.
+ * error — it is what tells the page to start an empty plan.
  */
 export async function getPlan(projectId) {
   const { data } = await api.get(`/projects/${projectId}/plan`);

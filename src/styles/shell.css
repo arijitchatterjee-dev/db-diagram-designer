@@ -231,8 +231,9 @@
   background: var(--surface);
   border-bottom: 1px solid var(--hair);
 }
-.topbar:empty {
-  display: none;
+/* The page's portalled contents take part in the bar's own flex row. */
+.topbar__slot {
+  display: contents;
 }
 .topbar__spacer {
   margin-left: auto;
@@ -326,9 +327,6 @@
 
   .topbar__burger {
     display: grid;
-  }
-  .topbar:empty {
-    display: flex;
   }
 }
 

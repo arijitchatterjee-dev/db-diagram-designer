@@ -1,0 +1,198 @@
+/* ==========================================================================
+   Plan steps
+   The rail across the top of the plan document, and the pager under it.
+   ========================================================================== */
+
+.psteps {
+  margin-bottom: 26px;
+  padding: 5px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--lift);
+  overflow-x: auto;
+}
+.psteps ol {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.psteps__item {
+  flex: 1;
+  min-width: 0;
+}
+.psteps__item button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), background 0.3s var(--ease);
+}
+.psteps__item button:hover {
+  color: var(--text-2);
+  background: var(--surface-3);
+}
+.psteps__item.is-current button {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--hair);
+  box-shadow: var(--lift-2);
+}
+
+.psteps__mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+}
+.psteps__item.is-done .psteps__mark {
+  border-color: rgba(245, 165, 36, 0.4);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.psteps__item.is-current .psteps__mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.psteps__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.psteps__count {
+  padding: 0 5px;
+  border-radius: var(--r-xs);
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* Under 900px the labels stop fitting; the marks alone still say where you
+   are, and the rail scrolls rather than wrapping to two rows. */
+@media (max-width: 900px) {
+  .psteps__item {
+    flex: none;
+  }
+  .psteps__item:not(.is-current) .psteps__label,
+  .psteps__count {
+    display: none;
+  }
+}
+
+/* ---------- pager ---------- */
+
+.pfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--hair);
+}
+.pfoot__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pfoot__hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- what is still open ---------- */
+
+.pgaps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pgaps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pgaps svg {
+  flex: none;
+  color: var(--accent);
+}
+.pgaps span {
+  flex: 1;
+  min-width: 0;
+}
+.pgaps__go {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid var(--hair-2);
+  border-radius: var(--r-xs);
+  background: var(--bg);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.pgaps__go:hover {
+  color: var(--accent);
+  border-color: rgba(245, 165, 36, 0.34);
+}
+.pgaps__ok {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pgaps__ok svg {
+  color: #7fd1a0;
+}
+
+/* ---------- an aside inside a step ---------- */
+
+.pnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 11px 13px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.pnote svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-3);
+}

@@ -2,7 +2,7 @@ import { ArrowClockwise, Lock, LockOpen, Plus, Trash } from '@phosphor-icons/rea
 import { HTTP_METHODS } from '../../engine/planOptions';
 import { findModule } from '../../engine/modules';
 
-/** The editable endpoint list, shared by the wizard and the plan document. */
+/** The editable endpoint list. */
 export default function ApiTable({ apis, stale, onChange, onAdd, onRemove, onRederive }) {
   return (
     <>

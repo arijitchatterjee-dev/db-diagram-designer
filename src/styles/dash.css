@@ -303,3 +303,29 @@
     grid-column: 2;
   }
 }
+
+/* ---------- the module library ---------- */
+
+.mods__lead {
+  max-width: 62ch;
+  margin-bottom: 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+/* A library row is not a link: editing is what you do to a module, and the
+   whole-row target would fight the Edit button sitting inside it. */
+.prow__main--static::after {
+  content: none;
+}
+.prow__key {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .prow__key {
+    display: none;
+  }
+}

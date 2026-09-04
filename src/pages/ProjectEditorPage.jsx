@@ -8,7 +8,7 @@ import {
   TreeStructure,
   WarningCircle,
 } from '@phosphor-icons/react';
-import AppShell from '../components/layout/AppShell';
+import PageHeader from '../components/layout/PageHeader';
 import SaveState from '../components/ui/SaveState';
 import DbmlEditor from '../components/editor/DbmlEditor';
 import DiagramCanvas from '../components/editor/DiagramCanvas';
@@ -97,37 +97,32 @@ export default function ProjectEditorPage() {
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="center">
-          <CircleNotch size={20} weight="bold" className="spin" />
-          <p>Opening project</p>
-        </div>
-      </AppShell>
+      <div className="center">
+        <CircleNotch size={20} weight="bold" className="spin" />
+        <p>Opening project</p>
+      </div>
     );
   }
 
   if (loadError) {
     return (
-      <AppShell>
-        <div className="center">
-          <span className="blank__icon">
-            <WarningCircle size={20} weight="fill" />
-          </span>
-          <h2>{loadError}</h2>
-          <Link to="/" className="btn">
-            <ArrowLeft size={15} weight="bold" />
-            Back to projects
-          </Link>
-        </div>
-      </AppShell>
+      <div className="center">
+        <span className="blank__icon">
+          <WarningCircle size={20} weight="fill" />
+        </span>
+        <h2>{loadError}</h2>
+        <Link to="/" className="btn">
+          <ArrowLeft size={15} weight="bold" />
+          Back to projects
+        </Link>
+      </div>
     );
   }
 
   return (
-    <AppShell topbar={<>
-
+    <>
+      <PageHeader>
         <EditableTitle value={project?.name ?? ''} onChange={setName} />
-
 
         <span className="doc-stats">
           <span title="Tables">
@@ -156,7 +151,7 @@ export default function ProjectEditorPage() {
           <FloppyDisk size={14} weight="bold" />
           Save
         </button>
-      </>}>
+      </PageHeader>
 
       {importing && (
         <ImportDialog
@@ -180,6 +175,6 @@ export default function ProjectEditorPage() {
         left={<DbmlEditor value={dbml} onChange={setDbml} parseError={parseError} />}
         right={<DiagramCanvas />}
       />
-    </AppShell>
+    </>
   );
 }

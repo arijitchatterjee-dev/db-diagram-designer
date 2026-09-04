@@ -2,7 +2,7 @@
  * How the code is organised, and how it is deployed.
  *
  * Same rule shape as `catalog.js`, with one addition: architecture depends on
- * the plan and not only on the wizard answers, so a rule can also read derived
+ * the plan and not only on the answers, so a rule can also read derived
  * facts (`whenFact`) and decisions already taken (`whenChoice`).
  *
  *   when:       answer key -> value, or an array of accepted values

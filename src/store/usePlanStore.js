@@ -60,7 +60,7 @@ export const usePlanStore = create((set, get) => ({
 
   /**
    * Starts a plan in memory without touching the server. Nothing is persisted
-   * until a save, so opening the wizard and backing out leaves no trace.
+   * until a save, so opening a project and backing out leaves no trace.
    */
   startPlan(seed = {}) {
     set({ plan: { ...EMPTY_PLAN, ...seed }, dirty: true });

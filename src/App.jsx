@@ -5,9 +5,11 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectEditorPage from './pages/ProjectEditorPage';
 import PlanPage from './pages/PlanPage';
-import PlanWizardPage from './pages/PlanWizardPage';
 import ArchitecturePage from './pages/ArchitecturePage';
+import HistoryPage from './pages/HistoryPage';
+import ModulesPage from './pages/ModulesPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import MainLayout from './layouts/MainLayout';
 import { useAuthStore } from './store/useAuthStore';
 
 export default function App() {
@@ -25,11 +27,18 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/project/:id" element={<ProjectEditorPage />} />
-          <Route path="/project/:id/plan" element={<PlanPage />} />
-          <Route path="/project/:id/plan/wizard" element={<PlanWizardPage />} />
-          <Route path="/project/:id/architecture" element={<ArchitecturePage />} />
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/project/:id" element={<ProjectEditorPage />} />
+            <Route path="/project/:id/plan" element={<PlanPage />} />
+            <Route
+              path="/project/:id/plan/wizard"
+              element={<Navigate to=".." relative="path" replace />}
+            />
+            <Route path="/project/:id/architecture" element={<ArchitecturePage />} />
+            <Route path="/project/:id/history" element={<HistoryPage />} />
+            <Route path="/modules" element={<ModulesPage />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

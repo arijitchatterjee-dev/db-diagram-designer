@@ -6,8 +6,11 @@ import App from './App';
 import './styles.css';
 import './styles/shell.css';
 import './styles/dash.css';
-import './styles/wizard.css';
+import './styles/parts.css';
+import './styles/steps.css';
 import './styles/plan.css';
+import './styles/chat.css';
+import './styles/history.css';
 import './styles/modules.css';
 import './styles/print.css';
 

@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { List } from '@phosphor-icons/react';
-import Sidebar from './Sidebar';
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../components/layout/Sidebar';
+import Header from '../components/layout/Header';
+import { HeaderSlotContext } from '../components/layout/headerSlot';
 
 const STORAGE_KEY = 'schema-designer:sidebar';
 
-/**
- * Sidebar plus a content column, which every signed-in page sits inside.
- *
- * The top bar is now only what the page itself is doing: its title and its
- * actions. Navigation moved to the sidebar, so the bar stops being a place
- * where those two unrelated things compete for the same row.
- */
-export default function AppShell({ topbar, children }) {
+export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(() => {
-    // Storage can throw outright in a locked-down browser, so never assume it.
     try {
       return localStorage.getItem(STORAGE_KEY) === 'collapsed';
     } catch {
@@ -21,6 +15,10 @@ export default function AppShell({ topbar, children }) {
     }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // A callback ref rather than useRef: it re-renders once the node exists, so
+  // the portal has somewhere to go on the page's first paint.
+  const [slot, setSlot] = useState(null);
 
   useEffect(() => {
     try {
@@ -42,19 +40,11 @@ export default function AppShell({ topbar, children }) {
       />
 
       <div className="shell__main">
-        <header className="topbar">
-          <button
-            type="button"
-            className="topbar__burger"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
-          >
-            <List size={16} weight="bold" />
-          </button>
-          {topbar}
-        </header>
+        <Header onOpenNav={() => setMobileOpen(true)} slotRef={setSlot} />
 
-        {children}
+        <HeaderSlotContext.Provider value={slot}>
+          <Outlet />
+        </HeaderSlotContext.Provider>
       </div>
     </div>
   );

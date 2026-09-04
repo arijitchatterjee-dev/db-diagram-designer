@@ -2,16 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  ArrowRight,
   CircleNotch,
-  Compass,
   FloppyDisk,
-  MagicWand,
+  Info,
+  Sparkle,
   Table,
   Trash,
   WarningCircle,
 } from '@phosphor-icons/react';
-import AppShell from '../components/layout/AppShell';
+import PageHeader from '../components/layout/PageHeader';
+import PlanSteps, { PlanStepFoot } from '../components/plan/PlanSteps';
+import PresetPicker from '../components/plan/PresetPicker';
+import PlanGaps from '../components/plan/PlanGaps';
+import ChatPanel from '../components/plan/ChatPanel';
 import EditableTitle from '../components/editor/EditableTitle';
 import SaveState from '../components/ui/SaveState';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -43,7 +46,10 @@ import {
 } from '../engine/generateDbml';
 import AutoTextarea from '../components/common/AutoTextarea';
 import { usePlanStore } from '../store/usePlanStore';
-import { PRESETS, STATUSES } from '../engine/planOptions';
+import { usePlanArchitecture } from '../hooks/usePlanArchitecture';
+import { LAYERING, TOPOLOGY } from '../engine/architecture';
+import { defaultAnswersFor, suggestedModulesFor } from '../engine/presets';
+import { ANSWERS, ANSWER_KEYS, STATUSES } from '../engine/planOptions';
 import {
   recommendStack,
   applyOverrides,
@@ -77,7 +83,16 @@ export default function PlanPage() {
   const patch = usePlanStore((s) => s.patch);
   const save = usePlanStore((s) => s.save);
   const removePlan = usePlanStore((s) => s.removePlan);
+  const startPlan = usePlanStore((s) => s.startPlan);
 
+  const [step, setStep] = useState(0);
+  const [chatOpen, setChatOpen] = useState(() => {
+    try {
+      return localStorage.getItem('schema-designer:chat') === 'open';
+    } catch {
+      return false;
+    }
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pageError, setPageError] = useState(null);
@@ -110,6 +125,21 @@ export default function PlanPage() {
   useEffect(() => {
     loadPlan(id);
   }, [id, loadPlan]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('schema-designer:chat', chatOpen ? 'open' : 'closed');
+    } catch {
+      /* a remembered panel is not worth breaking the page over */
+    }
+  }, [chatOpen]);
+
+  // Every project has a plan. A project you have just created and a project
+  // whose plan you deleted both land here, and an empty document you can start
+  // typing into beats a dead end with a button on it.
+  useEffect(() => {
+    if (!loading && !loadError && project && !plan) startPlan();
+  }, [loading, loadError, project, plan, startPlan]);
 
   useEffect(() => {
     setSelectedModules(project?.selectedModules ?? []);
@@ -189,6 +219,107 @@ export default function PlanPage() {
     apis.length > 0 &&
     JSON.stringify(apis.map((a) => `${a.method} ${a.path}`).sort()) !==
       JSON.stringify(derivedApis.map((a) => `${a.method} ${a.path}`).sort());
+
+  const { architecture, archOverrides, build: buildArchitecture } = usePlanArchitecture(
+    plan,
+    stack,
+    hydrated
+  );
+
+  function setArchOverride(dimension, choice) {
+    patch({ architecture: buildArchitecture({ arch: { ...archOverrides, [dimension]: choice } }) });
+  }
+
+  function clearArchOverride(dimension) {
+    const next = { ...archOverrides };
+    delete next[dimension];
+    patch({ architecture: buildArchitecture({ arch: next }) });
+  }
+
+  // A preset fills blanks only. Anything you answered or picked yourself is
+  // yours, and choosing a different preset later must not quietly undo it.
+  function choosePreset(presetKey) {
+    const answers = { ...(plan.answers ?? {}) };
+    for (const [key, value] of Object.entries(defaultAnswersFor(presetKey))) {
+      if (!answers[key]) answers[key] = value;
+    }
+
+    const moduleKeys = (plan.moduleKeys ?? []).length
+      ? plan.moduleKeys
+      : resolveDependencies(suggestedModulesFor(presetKey), hydrated).keys;
+
+    setNotice(null);
+    rewrite({ presetKey, answers, moduleKeys });
+  }
+
+  const gaps = useMemo(() => {
+    const list = [];
+    if (!plan?.context?.trim()) {
+      list.push({ text: 'No context written, so the plan cannot say what it is for.', step: 0 });
+    }
+    if (!plan?.goal?.trim()) {
+      list.push({ text: 'No version-one scope, so the modules have nothing to follow from.', step: 0 });
+    }
+    const missing = ANSWER_KEYS.filter((key) => !(plan?.answers ?? {})[key]);
+    if (missing.length) {
+      list.push({
+        text: `${missing.length} unanswered: ${missing.map((k) => ANSWERS[k].label).join(', ')}.`,
+        step: 1,
+      });
+    }
+    const undecided = stack.filter((row) => row.undecided);
+    if (undecided.length) {
+      list.push({ text: `${undecided.length} stack layers still undecided.`, step: 2 });
+    }
+    if (!(plan?.moduleKeys ?? []).length) {
+      list.push({ text: 'No modules selected, so no tables or endpoints follow.', step: 3 });
+    }
+    if (architecture.layering?.undecided || architecture.topology?.undecided) {
+      list.push({ text: 'Layering or topology is still a toss-up.', step: 4 });
+    }
+    const badPaths = apis.filter((api) => !api.path.startsWith('/')).length;
+    if (badPaths) {
+      list.push({ text: `${badPaths} endpoint paths do not start with a slash.`, step: 5 });
+    }
+    return list;
+  }, [plan, stack, architecture, apis]);
+
+  const steps = useMemo(() => {
+    const openAt = new Set(gaps.map((g) => g.step));
+    return [
+      { key: 'context', label: 'Context', done: !openAt.has(0) },
+      { key: 'constraints', label: 'Constraints', done: !openAt.has(1) },
+      { key: 'stack', label: 'Stack', done: !openAt.has(2) },
+      {
+        key: 'modules',
+        label: 'Modules',
+        done: !openAt.has(3),
+        count: (plan?.moduleKeys ?? []).length || null,
+      },
+      { key: 'architecture', label: 'Architecture', done: !openAt.has(4) },
+      { key: 'apis', label: 'APIs', done: !openAt.has(5), count: apis.length || null },
+      { key: 'review', label: 'Review', done: gaps.length === 0 },
+    ];
+  }, [gaps, plan?.moduleKeys, apis.length]);
+
+  /**
+   * Runs an apply, with whatever is on screen saved first.
+   *
+   * The server writes the patch on top of the *stored* plan. Anything typed
+   * but not yet autosaved would be missing from what comes back, so flushing
+   * first is what stops an apply quietly reverting the last thing you wrote.
+   */
+  async function applyProposal(run) {
+    if (dirty) await save();
+    const next = await run();
+    if (next) patch(next);
+  }
+
+  function go(next) {
+    setStep(next);
+    setNotice(null);
+    document.querySelector('.doc')?.scrollTo({ top: 0 });
+  }
 
   // Recomputes everything downstream of the answers in one write, so a saved
   // plan never holds a stack that disagrees with its own inputs.
@@ -529,43 +660,51 @@ export default function PlanPage() {
     if (ok) setConfirmDelete(false);
   }
 
-  if (loading) {
+  // `plan` is null for one frame on a project that has none: the effect above
+  // creates it, and effects run after the first paint. The document reads the
+  // plan directly, so it must not render before there is one.
+  if (loading || (!loadError && !plan)) {
     return (
-      <AppShell>
-        <div className="center">
-          <CircleNotch size={20} weight="bold" className="spin" />
-          <p>Opening plan</p>
-        </div>
-      </AppShell>
+      <div className="center">
+        <CircleNotch size={20} weight="bold" className="spin" />
+        <p>Opening plan</p>
+      </div>
     );
   }
 
   if (loadError) {
     return (
-      <AppShell>
-        <div className="center">
-          <span className="blank__icon">
-            <WarningCircle size={20} weight="fill" />
-          </span>
-          <h2>{loadError}</h2>
-          <Link to="/" className="btn">
-            <ArrowLeft size={15} weight="bold" />
-            Back to projects
-          </Link>
-        </div>
-      </AppShell>
+      <div className="center">
+        <span className="blank__icon">
+          <WarningCircle size={20} weight="fill" />
+        </span>
+        <h2>{loadError}</h2>
+        <Link to="/" className="btn">
+          <ArrowLeft size={15} weight="bold" />
+          Back to projects
+        </Link>
+      </div>
     );
   }
 
   const decided = stack.filter((row) => !row.undecided).length;
 
   return (
-    <AppShell topbar={<>
-
+    <>
+      <PageHeader>
         <EditableTitle value={project?.name ?? ''} onChange={renameProject} />
 
-
         <span className="topbar__spacer" />
+
+        <button
+          type="button"
+          className={`chat__open${chatOpen ? ' is-on' : ''}`}
+          onClick={() => setChatOpen((v) => !v)}
+          aria-pressed={chatOpen}
+        >
+          <Sparkle size={13} weight="fill" />
+          Ask
+        </button>
 
         {plan && <SaveState saving={saving} dirty={dirty} lastSavedAt={lastSavedAt} />}
 
@@ -589,7 +728,7 @@ export default function PlanPage() {
             Save
           </button>
         )}
-      </>}>
+      </PageHeader>
 
       {(saveError || pageError) && (
         <p className="alert alert--error alert--bar" role="alert">
@@ -598,25 +737,23 @@ export default function PlanPage() {
         </p>
       )}
 
+      <div className={chatOpen ? 'withchat' : 'withchat withchat--solo'}>
       <main className="doc">
-        {!plan ? (
-          <section className="blank">
-            <span className="blank__icon">
-              <Compass size={22} weight="duotone" />
-            </span>
-            <h2>No plan yet</h2>
-            <p>
-              Describe what you are building and the tool works out a stack, a database
-              and the modules that follow from it. The schema on the other tab stays as
-              it is either way.
-            </p>
-            <Link to={`/project/${id}/plan/wizard`} className="btn btn--primary">
-              Start planning
-              <ArrowRight size={15} weight="bold" />
-            </Link>
-          </section>
-        ) : (
+        <PlanSteps steps={steps} current={step} onGo={go} />
+
+        {step === 0 && (
           <>
+            <section className="doc__section">
+              <div className="doc__head">
+                <h2>Start from</h2>
+                <p className="doc__hint">
+                  A preset only fills blanks. Anything you have already answered or picked
+                  yourself is left alone.
+                </p>
+              </div>
+              <PresetPicker value={plan.presetKey} onChoose={choosePreset} />
+            </section>
+
             <section className="doc__section">
               <div className="doc__head">
                 <h2>Context</h2>
@@ -627,7 +764,10 @@ export default function PlanPage() {
               </div>
 
               <div className="field">
-                <label htmlFor="plan-context">What is it</label>
+                <label htmlFor="plan-context">The product</label>
+                <p className="field__hint">
+                  One or two sentences: what it is and who uses it.
+                </p>
                 <AutoTextarea
                   id="plan-context"
                   value={plan.context}
@@ -637,80 +777,74 @@ export default function PlanPage() {
               </div>
 
               <div className="field">
-                <label htmlFor="plan-goal">What does done look like</label>
+                <label htmlFor="plan-goal">Must work in version one</label>
+                <p className="field__hint">
+                  One per line. This is the scope: anything you leave out becomes a later
+                  version.
+                </p>
                 <AutoTextarea
                   id="plan-goal"
                   value={plan.goal}
                   onChange={(e) => patch({ goal: e.target.value })}
-                  placeholder="Customers can browse, pay and track an order. I can manage stock."
+                  placeholder={'Browse and search products\nPay for an order\nTrack a delivery\nAdd products and manage stock'}
                 />
               </div>
 
-              <div className="doc__row">
-                <div className="field">
-                  <label htmlFor="plan-preset">Project type</label>
-                  <select
-                    id="plan-preset"
-                    className="select"
-                    value={plan.presetKey}
-                    onChange={(e) => patch({ presetKey: e.target.value })}
-                  >
-                    {PRESETS.map((preset) => (
-                      <option key={preset.value} value={preset.value}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="field">
-                  <label htmlFor="plan-status">Status</label>
-                  <select
-                    id="plan-status"
-                    className="select"
-                    value={plan.status}
-                    onChange={(e) => patch({ status: e.target.value })}
-                  >
-                    {STATUSES.map((status) => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="field">
+                <label htmlFor="plan-status">Status</label>
+                <select
+                  id="plan-status"
+                  className="select"
+                  value={plan.status}
+                  onChange={(e) => patch({ status: e.target.value })}
+                >
+                  {STATUSES.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </section>
+          </>
+        )}
 
-            <section className="doc__section">
-              <div className="doc__head">
-                <h2>Constraints</h2>
-                <p className="doc__hint">
-                  Change any of these and the stack below re-reasons itself straight away.
-                </p>
-              </div>
-              <PlanAnswers answers={plan.answers ?? {}} onAnswer={setAnswer} />
-            </section>
+        {step === 1 && (
+          <section className="doc__section">
+            <div className="doc__head">
+              <h2>Constraints</h2>
+              <p className="doc__hint">
+                Change any of these and the stack re-reasons itself straight away.
+              </p>
+            </div>
+            <PlanAnswers answers={plan.answers ?? {}} onAnswer={setAnswer} />
+          </section>
+        )}
 
-            <section className="doc__section">
-              <div className="doc__head">
-                <h2>
-                  Stack <span className="doc__count">{decided} of {stack.length} decided</span>
-                </h2>
-                <p className="doc__hint">
-                  Every reason here is a rule that matched your answers. Overriding one
-                  keeps it overridden when the answers change.
-                </p>
-              </div>
-              {stack.map((row) => (
-                <StackLayer
-                  key={row.layer}
-                  row={row}
-                  onOverride={setOverride}
-                  onClearOverride={clearOverride}
-                />
-              ))}
-            </section>
+        {step === 2 && (
+          <section className="doc__section">
+            <div className="doc__head">
+              <h2>
+                Stack <span className="doc__count">{decided} of {stack.length} decided</span>
+              </h2>
+              <p className="doc__hint">
+                Every reason here is a rule that matched your answers. Overriding one
+                keeps it overridden when the answers change.
+              </p>
+            </div>
+            {stack.map((row) => (
+              <StackLayer
+                key={row.layer}
+                row={row}
+                onOverride={setOverride}
+                onClearOverride={clearOverride}
+              />
+            ))}
+          </section>
+        )}
 
+        {step === 3 && (
+          <>
             <section className="doc__section">
               <div className="doc__head">
                 <h2>
@@ -742,9 +876,100 @@ export default function PlanPage() {
 
             <section className="doc__section">
               <div className="doc__head">
+                <h2>Module checklists</h2>
+                <p className="doc__hint">
+                  Copied from your blueprints when attached, so editing a blueprint later
+                  never rewrites work already under way.
+                </p>
+              </div>
+              <PlanChecklists
+                blueprints={blueprints}
+                selectedModules={selectedModules}
+                moduleKeys={plan.moduleKeys ?? []}
+                busyKey={busyKey}
+                onAttach={attachBlueprints}
+                onDetach={detachBlueprint}
+                onToggle={toggleChecklistItem}
+              />
+            </section>
+          </>
+        )}
+
+        {step === 4 && (
+          <section className="doc__section">
+            <div className="doc__head">
+              <h2>Architecture</h2>
+              <p className="doc__hint">
+                How the code is organised, and how it ships. Reasoned from your team size,
+                your scale and the {(plan.moduleKeys ?? []).length}{' '}
+                {(plan.moduleKeys ?? []).length === 1 ? 'module' : 'modules'} you picked.
+              </p>
+            </div>
+
+            <StackLayer
+              row={architecture.layering}
+              label="Layering"
+              dimension="layering"
+              options={LAYERING}
+              onOverride={setArchOverride}
+              onClearOverride={clearArchOverride}
+            />
+            <StackLayer
+              row={architecture.topology}
+              label="Topology"
+              dimension="topology"
+              options={TOPOLOGY}
+              onOverride={setArchOverride}
+              onClearOverride={clearArchOverride}
+            />
+
+            <p className="pnote">
+              <Info size={14} weight="fill" />
+              <span>
+                The nine cross-cutting concerns, the folder structure and the decision log
+                all follow from these two, and have room to read on the{' '}
+                <Link to={`/project/${id}/architecture`}>architecture page</Link>.
+              </span>
+            </p>
+          </section>
+        )}
+
+        {step === 5 && (
+          <section className="doc__section">
+            <div className="doc__head">
+              <h2>
+                API surface <span className="doc__count">{apis.length}</span>
+              </h2>
+              <p className="doc__hint">Derived from the modules, then yours to edit.</p>
+            </div>
+            <ApiTable
+              apis={apis}
+              stale={apisStale}
+              onChange={editApi}
+              onAdd={addApi}
+              onRemove={removeApi}
+              onRederive={rederiveApis}
+            />
+          </section>
+        )}
+
+        {step === 6 && (
+          <>
+            <section className="doc__section">
+              <div className="doc__head">
+                <h2>Still open</h2>
+                <p className="doc__hint">
+                  A plan can ship with gaps. It should not have them by accident.
+                </p>
+              </div>
+              <PlanGaps gaps={gaps} onGo={go} />
+            </section>
+
+            <section className="doc__section">
+              <div className="doc__head">
                 <h2>Schema</h2>
                 <p className="doc__hint">
-                  The tables your modules imply, written into the diagram on the other
+                  The tables your modules imply, written into the diagram on the schema
                   tab. A starting point: the obvious foreign keys are there, the
                   interesting columns are still yours.
                 </p>
@@ -758,7 +983,7 @@ export default function PlanPage() {
                   </p>
                   <p className="doc__hint">
                     {entities.length === 0
-                      ? 'Pick some modules above and they turn into tables here.'
+                      ? 'Pick some modules and they turn into tables here.'
                       : 'Existing tables are never overwritten without asking first.'}
                   </p>
                 </div>
@@ -778,49 +1003,13 @@ export default function PlanPage() {
               </div>
             </section>
 
-            <section className="doc__section">
-              <div className="doc__head">
-                <h2>Module checklists</h2>
-                <p className="doc__hint">
-                  Copied from your blueprints when attached, so editing a blueprint later
-                  never rewrites work already under way.
-                </p>
-              </div>
-              <PlanChecklists
-                blueprints={blueprints}
-                selectedModules={selectedModules}
-                moduleKeys={plan.moduleKeys ?? []}
-                busyKey={busyKey}
-                onAttach={attachBlueprints}
-                onDetach={detachBlueprint}
-                onToggle={toggleChecklistItem}
-              />
-            </section>
-
-            <section className="doc__section">
-              <div className="doc__head">
-                <h2>
-                  API surface <span className="doc__count">{apis.length}</span>
-                </h2>
-                <p className="doc__hint">
-                  Derived from the modules, then yours to edit.
-                </p>
-              </div>
-              <ApiTable
-                apis={apis}
-                stale={apisStale}
-                onChange={editApi}
-                onAdd={addApi}
-                onRemove={removeApi}
-                onRederive={rederiveApis}
-              />
-            </section>
-
             {notes.length > 0 && (
               <section className="doc__section">
                 <div className="doc__head">
                   <h2>What breaks first</h2>
-                  <p className="doc__hint">The ceiling this plan was designed to, not a promise.</p>
+                  <p className="doc__hint">
+                    The ceiling this plan was designed to, not a promise.
+                  </p>
                 </div>
                 <ul className="rev__notes">
                   {notes.map((note) => (
@@ -846,21 +1035,8 @@ export default function PlanPage() {
 
             <section className="doc__section doc__section--quiet">
               <div className="doc__head">
-                <h2>Start over</h2>
-                <p className="doc__hint">Redo the reasoning, or throw the plan away.</p>
-              </div>
-
-              <div className="doc__danger">
-                <div>
-                  <p className="doc__danger-title">Run the wizard again</p>
-                  <p className="doc__hint">
-                    Walks the six steps with everything here already filled in.
-                  </p>
-                </div>
-                <Link to={`/project/${id}/plan/wizard`} className="btn btn--sm">
-                  <MagicWand size={14} weight="bold" />
-                  Redo wizard
-                </Link>
+                <h2>Delete</h2>
+                <p className="doc__hint">Throw the planning half away.</p>
               </div>
 
               <div className="doc__danger doc__danger--red">
@@ -883,7 +1059,22 @@ export default function PlanPage() {
             </section>
           </>
         )}
+
+        <PlanStepFoot
+          onBack={step > 0 ? () => go(step - 1) : null}
+          onNext={step < steps.length - 1 ? () => go(step + 1) : null}
+          hint={step === steps.length - 1 && gaps.length > 0 ? `${gaps.length} still open` : null}
+        />
       </main>
+
+      {chatOpen && (
+        <ChatPanel
+          projectId={id}
+          onClose={() => setChatOpen(false)}
+          onApplied={applyProposal}
+        />
+      )}
+      </div>
 
       {/* Screen-hidden, and what the print stylesheet actually prints. */}
       {plan && (
@@ -939,6 +1130,6 @@ export default function PlanPage() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />
-    </AppShell>
+    </>
   );
 }

@@ -3,7 +3,9 @@ import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Blueprint,
   CaretDown,
+  ClockCounterClockwise,
   Compass,
+  Cube,
   Database,
   Plus,
   SidebarSimple,
@@ -107,6 +109,13 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
             <span className="sidebar__hide">Projects</span>
           </NavLink>
 
+          <NavLink to="/modules" className={item} onClick={onCloseMobile} title="Modules">
+            <span className="snav__icon">
+              <Cube size={15} weight="bold" />
+            </span>
+            <span className="sidebar__hide">Modules</span>
+          </NavLink>
+
           {open && (
             <div className="snav__group">
               <p className="snav__label sidebar__hide">Open</p>
@@ -136,6 +145,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
                   <Table size={15} weight="bold" />
                 </span>
                 <span className="sidebar__hide">Schema</span>
+              </NavLink>
+              <NavLink
+                to={`/project/${open._id}/history`}
+                className={item}
+                onClick={onCloseMobile}
+                title="History"
+              >
+                <span className="snav__icon">
+                  <ClockCounterClockwise size={15} weight="bold" />
+                </span>
+                <span className="sidebar__hide">History</span>
               </NavLink>
             </div>
           )}

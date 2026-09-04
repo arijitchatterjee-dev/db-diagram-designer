@@ -9,7 +9,7 @@ import {
   WarningCircle,
   X,
 } from '@phosphor-icons/react';
-import AppShell from '../components/layout/AppShell';
+import PageHeader from '../components/layout/PageHeader';
 import CardMenu from '../components/ui/CardMenu';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import ProjectDetailsDialog from '../components/ui/ProjectDetailsDialog';
@@ -103,7 +103,7 @@ export default function DashboardPage() {
     setError(null);
     try {
       const project = await projectApi.createProject(form);
-      navigate(`/project/${project._id}`);
+      navigate(`/project/${project._id}/plan`);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not create the project'));
       setCreating(false);
@@ -154,57 +154,55 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppShell
-      topbar={
-        <>
-          <h1 className="topbar__title">Projects</h1>
-          <span className="topbar__count">
-            {loading ? '' : projects.length}
-          </span>
+    <>
+      <PageHeader>
+        <h1 className="topbar__title">Projects</h1>
+        <span className="topbar__count">
+          {loading ? '' : projects.length}
+        </span>
 
-          <span className="topbar__spacer" />
+        <span className="topbar__spacer" />
 
-          {projects.length > 3 && (
-            <>
-              <div className="search">
-                <MagnifyingGlass size={14} weight="bold" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Filter projects"
-                  aria-label="Filter projects"
-                />
-                {query && (
-                  <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
-                    <X size={12} weight="bold" />
-                  </button>
-                )}
-              </div>
-              <select
-                className="select select--inline"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                aria-label="Sort projects"
-              >
-                {Object.entries(SORTS).map(([id, option]) => (
-                  <option key={id} value={id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <button
-            type="button"
-            className="btn btn--primary btn--sm"
-            onClick={() => setShowForm((v) => !v)}
-          >
-            {showForm ? <X size={14} weight="bold" /> : <Plus size={14} weight="bold" />}
-            {showForm ? 'Cancel' : 'New project'}
-          </button>
-        </>
-      }
-    >
+        {projects.length > 3 && (
+          <>
+            <div className="search">
+              <MagnifyingGlass size={14} weight="bold" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter projects"
+                aria-label="Filter projects"
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery('')} aria-label="Clear filter">
+                  <X size={12} weight="bold" />
+                </button>
+              )}
+            </div>
+            <select
+              className="select select--inline"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              aria-label="Sort projects"
+            >
+              {Object.entries(SORTS).map(([id, option]) => (
+                <option key={id} value={id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        <button
+          type="button"
+          className="btn btn--primary btn--sm"
+          onClick={() => setShowForm((v) => !v)}
+        >
+          {showForm ? <X size={14} weight="bold" /> : <Plus size={14} weight="bold" />}
+          {showForm ? 'Cancel' : 'New project'}
+        </button>
+      </PageHeader>
+
       <main className="dash">
         {error && (
           <p className="alert alert--error" role="alert">
@@ -389,6 +387,6 @@ export default function DashboardPage() {
         onConfirm={handleDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </AppShell>
+    </>
   );
 }

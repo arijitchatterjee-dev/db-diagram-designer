@@ -61,7 +61,8 @@
   .sidebar__scrim,
   .topbar,
   .doc,
-  .wizard,
+  .chat,
+  .chat__open,
   .alert,
   .overlay,
   .dialog {

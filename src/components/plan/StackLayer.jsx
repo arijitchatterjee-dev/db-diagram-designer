@@ -5,7 +5,7 @@ import { labelFor, LAYERS } from '../../engine/planOptions';
 /**
  * One layer of the recommended stack, with the rules that produced it.
  *
- * Shared by the wizard and the plan document so the reasoning reads the same
+ * Shared by the plan document and the architecture page so reasoning reads the same
  * in both places, and there is one implementation of the override control
  * rather than two that drift.
  */

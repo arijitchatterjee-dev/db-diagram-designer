@@ -1,7 +1,8 @@
 /* ==========================================================================
    Plan document
    The sections unique to the plan page. The stack layers, alternatives and
-   API table it also uses are defined in wizard.css, shared by both screens.
+   API table it also uses are defined in parts.css, shared with the
+   architecture page.
    ========================================================================== */
 
 .doc__count {

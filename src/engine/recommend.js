@@ -17,7 +17,7 @@ function matchesValue(expected, actual) {
 }
 
 /**
- * Facts derived from the plan rather than answered in the wizard: how many
+ * Facts derived from the plan rather than answered directly: how many
  * modules are selected, whether one of them handles money. Numbers are matched
  * with `{ min, max }` because "eight or more features" is the shape those rules
  * actually want; everything else matches by value.
@@ -199,7 +199,7 @@ export function scaleNotes(answers = {}, stack = []) {
 // ----------------------------------------------------------- architecture
 
 /**
- * Facts the architecture rules read that the wizard never asked about. Derived
+ * Facts the architecture rules read that are never asked about directly. Derived
  * from the plan, so changing the module selection changes the architecture.
  */
 export function architectureFacts(plan = {}, stack = []) {

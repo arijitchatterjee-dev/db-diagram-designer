@@ -1,29 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Blueprint, CircleNotch, FloppyDisk, WarningCircle } from '@phosphor-icons/react';
-import AppShell from '../components/layout/AppShell';
+import PageHeader from '../components/layout/PageHeader';
 import EditableTitle from '../components/editor/EditableTitle';
 import SaveState from '../components/ui/SaveState';
 import StackLayer from '../components/plan/StackLayer';
 import ArchitectureConcerns from '../components/plan/ArchitectureConcerns';
 import FolderTree from '../components/plan/FolderTree';
 import DecisionLog from '../components/plan/DecisionLog';
-import { seedDecisions, logIsStale, sortLog } from '../engine/decisions';
+import { logIsStale, sortLog } from '../engine/decisions';
 import { usePlanStore } from '../store/usePlanStore';
+import { usePlanArchitecture } from '../hooks/usePlanArchitecture';
 import { LAYERING, TOPOLOGY } from '../engine/architecture';
 import { hydrateCustomModules } from '../engine/customModules';
-import { generateFolders, folderSignature } from '../engine/folders';
-import {
-  recommendStack,
-  applyOverrides,
-  recommendArchitecture,
-  recommendConcerns,
-  applyArchitectureOverrides,
-  applyConcernOverrides,
-  architectureFacts,
-  toArchitectureRows,
-  toConcernRows,
-} from '../engine/recommend';
+import { recommendStack, applyOverrides } from '../engine/recommend';
 import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
 
@@ -106,124 +96,46 @@ export default function ArchitecturePage() {
     [answers, stackOverrides]
   );
 
-  const facts = useMemo(
-    () => architectureFacts({ moduleKeys: plan?.moduleKeys ?? [], answers }, stack),
-    [plan?.moduleKeys, answers, stack]
-  );
+  const {
+    architecture,
+    concerns,
+    archOverrides,
+    concernOverrides,
+    archNotes,
+    concernNotes,
+    build,
+    signature,
+    buildFolders,
+  } = usePlanArchitecture(plan, stack, hydrated);
 
-  const archOverrides = useMemo(() => {
-    const out = {};
-    for (const dimension of ['layering', 'topology']) {
-      if (stored[dimension]?.overridden && stored[dimension]?.choice) {
-        out[dimension] = stored[dimension].choice;
-      }
-    }
-    return out;
-  }, [stored]);
-
-  const concernOverrides = useMemo(
-    () =>
-      Object.fromEntries(
-        (stored.concerns ?? []).filter((c) => c.overridden && c.choice).map((c) => [c.key, c.choice])
-      ),
-    [stored.concerns]
-  );
-
-  // Notes are yours and no re-run may discard them, so they are carried
-  // separately from anything the engine produces.
-  const archNotes = useMemo(
-    () => ({ layering: stored.layering?.note ?? '', topology: stored.topology?.note ?? '' }),
-    [stored]
-  );
-  const concernNotes = useMemo(
-    () => Object.fromEntries((stored.concerns ?? []).map((c) => [c.key, c.note ?? ''])),
-    [stored.concerns]
-  );
-
-  const architecture = useMemo(
-    () => applyArchitectureOverrides(recommendArchitecture(answers, facts), archOverrides, answers, facts),
-    [answers, facts, archOverrides]
-  );
-  const concerns = useMemo(
-    () => applyConcernOverrides(recommendConcerns(answers, facts, architecture), concernOverrides),
-    [answers, facts, architecture, concernOverrides]
-  );
-
-  /**
-   * Writes the whole derived architecture in one go, so a saved plan never
-   * holds an architecture that disagrees with the answers behind it.
-   */
   const rewrite = useCallback(
-    ({ arch = archOverrides, con = concernOverrides, notes = archNotes, cNotes = concernNotes } = {}) => {
-      const nextArch = applyArchitectureOverrides(recommendArchitecture(answers, facts), arch, answers, facts);
-      const nextConcerns = applyConcernOverrides(recommendConcerns(answers, facts, nextArch), con);
-
-      patch({
-        architecture: {
-          ...toArchitectureRows(nextArch, notes),
-          concerns: toConcernRows(nextConcerns, cNotes),
-          // Engine entries follow the decision they describe, so changing one
-          // here updates its entry. Entries you wrote are passed through
-          // untouched by `seedDecisions`.
-          decisions: seedDecisions({ stack, architecture: nextArch, existing: stored.decisions ?? [] }),
-        },
-      });
-    },
-    [answers, facts, stack, archOverrides, concernOverrides, archNotes, concernNotes, stored.decisions, patch]
+    (changes) => patch({ architecture: build(changes) }),
+    [build, patch]
   );
 
-  // What the tree would be generated from right now. When this stops matching
-  // what it was generated from, the tree is stale and says so. Nothing
-  // regenerates on its own: an edited tree is somebody's work.
-  const folderInputs = useMemo(
-    () => ({
-      stack,
-      layering: architecture.layering?.undecided ? '' : architecture.layering?.choice ?? '',
-      moduleKeys: plan?.moduleKeys ?? [],
-      customModules: hydrated,
-    }),
-    [stack, architecture.layering, plan?.moduleKeys, hydrated]
-  );
-  const currentSignature = useMemo(() => folderSignature(folderInputs), [folderInputs]);
+  // Nothing regenerates on its own: an edited tree is somebody's work.
   const folders = plan?.folders ?? { generatedFrom: '', tree: [] };
-  const foldersStale = folders.tree.length > 0 && folders.generatedFrom !== currentSignature;
+  const foldersStale = folders.tree.length > 0 && folders.generatedFrom !== signature;
 
   function regenerateFolders() {
-    patch({
-      folders: {
-        generatedFrom: currentSignature,
-        tree: generateFolders(folderInputs),
-      },
-    });
+    patch({ folders: buildFolders() });
   }
 
   const decisions = stored.decisions ?? [];
   const decisionsStale = logIsStale(decisions, { stack, architecture });
 
   function syncDecisions() {
-    patch({
-      architecture: {
-        ...toArchitectureRows(architecture, archNotes),
-        concerns: toConcernRows(concerns, concernNotes),
-        decisions: seedDecisions({ stack, architecture, existing: decisions }),
-      },
-    });
+    rewrite({ decisions });
   }
 
   function editDecisions(next) {
-    patch({
-      architecture: {
-        ...toArchitectureRows(architecture, archNotes),
-        concerns: toConcernRows(concerns, concernNotes),
-        decisions: sortLog(next),
-      },
-    });
+    patch({ architecture: { ...build({ decisions }), decisions: sortLog(next) } });
   }
 
   function editFolders(tree) {
     // Editing keeps the signature: the tree still describes these inputs, it is
     // just no longer exactly what the generator would emit.
-    patch({ folders: { generatedFrom: folders.generatedFrom || currentSignature, tree } });
+    patch({ folders: { generatedFrom: folders.generatedFrom || signature, tree } });
   }
 
   const renameProject = useCallback(
@@ -241,37 +153,32 @@ export default function ArchitecturePage() {
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="center">
-          <CircleNotch size={20} weight="bold" className="spin" />
-          <p>Opening architecture</p>
-        </div>
-      </AppShell>
+      <div className="center">
+        <CircleNotch size={20} weight="bold" className="spin" />
+        <p>Opening architecture</p>
+      </div>
     );
   }
 
   if (loadError) {
     return (
-      <AppShell>
-        <div className="center">
-          <span className="blank__icon">
-            <WarningCircle size={20} weight="fill" />
-          </span>
-          <h2>{loadError}</h2>
-          <Link to="/" className="btn">
-            <ArrowLeft size={15} weight="bold" />
-            Back to projects
-          </Link>
-        </div>
-      </AppShell>
+      <div className="center">
+        <span className="blank__icon">
+          <WarningCircle size={20} weight="fill" />
+        </span>
+        <h2>{loadError}</h2>
+        <Link to="/" className="btn">
+          <ArrowLeft size={15} weight="bold" />
+          Back to projects
+        </Link>
+      </div>
     );
   }
 
   return (
-    <AppShell topbar={<>
-
+    <>
+      <PageHeader>
         <EditableTitle value={project?.name ?? ''} onChange={renameProject} />
-
 
         <span className="topbar__spacer" />
 
@@ -289,7 +196,7 @@ export default function ArchitecturePage() {
             Save
           </button>
         )}
-      </>}>
+      </PageHeader>
 
       {(saveError || pageError) && (
         <p className="alert alert--error alert--bar" role="alert">
@@ -442,6 +349,6 @@ export default function ArchitecturePage() {
           </>
         )}
       </main>
-    </AppShell>
+    </>
   );
 }

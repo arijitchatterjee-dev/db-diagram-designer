@@ -260,16 +260,21 @@ export default function ModuleEditorDialog({
         </div>
 
         <footer className="dialog__actions dialog__actions--split">
-          <button
-            type="button"
-            className="btn btn--sm"
-            onClick={() => onSaveToLibrary(draft)}
-            disabled={problems.length > 0 || savingToLibrary}
-            title="Keep this module for other projects"
-          >
-            <BookmarkSimple size={14} weight="bold" />
-            {savingToLibrary ? 'Saving' : 'Save to library'}
-          </button>
+          {/* Absent on the library page itself: you are already there. */}
+          {onSaveToLibrary ? (
+            <button
+              type="button"
+              className="btn btn--sm"
+              onClick={() => onSaveToLibrary(draft)}
+              disabled={problems.length > 0 || savingToLibrary}
+              title="Keep this module for other projects"
+            >
+              <BookmarkSimple size={14} weight="bold" />
+              {savingToLibrary ? 'Saving' : 'Save to library'}
+            </button>
+          ) : (
+            <span />
+          )}
 
           <div className="dialog__actions">
             <button type="button" className="btn" onClick={onCancel}>
