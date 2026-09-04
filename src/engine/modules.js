@@ -19,6 +19,7 @@ const CREATED = { name: 'created_at', type: 'timestamp' };
 export const MODULES = [
   {
     key: 'auth',
+    complexity: 'medium',
     name: 'Authentication',
     summary: 'Accounts, sessions and roles.',
     presets: ['ecommerce', 'saas', 'blog', 'marketplace'],
@@ -59,6 +60,7 @@ export const MODULES = [
   // ------------------------------------------------------------- ecommerce
   {
     key: 'catalog',
+    complexity: 'medium',
     name: 'Product catalog',
     summary: 'Products, categories and images.',
     presets: ['ecommerce'],
@@ -115,6 +117,7 @@ export const MODULES = [
   },
   {
     key: 'inventory',
+    complexity: 'small',
     name: 'Inventory',
     summary: 'Stock levels and the movements behind them.',
     presets: ['ecommerce'],
@@ -148,6 +151,7 @@ export const MODULES = [
   },
   {
     key: 'cart',
+    complexity: 'small',
     name: 'Cart',
     summary: 'A basket per customer.',
     presets: ['ecommerce'],
@@ -177,6 +181,7 @@ export const MODULES = [
   },
   {
     key: 'orders',
+    complexity: 'medium',
     name: 'Orders',
     summary: 'Placed orders and their lines.',
     presets: ['ecommerce'],
@@ -214,6 +219,7 @@ export const MODULES = [
   },
   {
     key: 'checkout',
+    complexity: 'large',
     name: 'Checkout and payments',
     summary: 'Taking money, and the record that it happened.',
     presets: ['ecommerce'],
@@ -241,6 +247,7 @@ export const MODULES = [
   },
   {
     key: 'reviews',
+    complexity: 'small',
     name: 'Product reviews',
     summary: 'Ratings and written reviews on products.',
     presets: ['ecommerce'],
@@ -269,6 +276,7 @@ export const MODULES = [
   // ------------------------------------------------------------------ saas
   {
     key: 'teams',
+    complexity: 'medium',
     name: 'Teams',
     summary: 'Workspaces and who belongs to them.',
     presets: ['saas'],
@@ -303,6 +311,7 @@ export const MODULES = [
   },
   {
     key: 'permissions',
+    complexity: 'medium',
     name: 'Permissions',
     summary: 'What each role is allowed to do.',
     presets: ['saas'],
@@ -333,6 +342,7 @@ export const MODULES = [
   },
   {
     key: 'billing',
+    complexity: 'large',
     name: 'Billing',
     summary: 'Subscriptions and invoices.',
     presets: ['saas'],
@@ -370,6 +380,7 @@ export const MODULES = [
   // ------------------------------------------------------------------ blog
   {
     key: 'posts',
+    complexity: 'small',
     name: 'Posts',
     summary: 'The writing itself.',
     presets: ['blog'],
@@ -400,6 +411,7 @@ export const MODULES = [
   },
   {
     key: 'tags',
+    complexity: 'trivial',
     name: 'Tags',
     summary: 'How posts are grouped.',
     presets: ['blog'],
@@ -430,6 +442,7 @@ export const MODULES = [
   },
   {
     key: 'comments',
+    complexity: 'small',
     name: 'Comments',
     summary: 'Replies on posts, with moderation.',
     presets: ['blog'],
@@ -456,6 +469,7 @@ export const MODULES = [
   },
   {
     key: 'media',
+    complexity: 'medium',
     name: 'Media',
     summary: 'Uploaded images and files.',
     presets: ['blog'],
@@ -484,6 +498,7 @@ export const MODULES = [
   // ----------------------------------------------------------- marketplace
   {
     key: 'listings',
+    complexity: 'medium',
     name: 'Listings',
     summary: 'What sellers put up for sale.',
     presets: ['marketplace'],
@@ -522,6 +537,7 @@ export const MODULES = [
   },
   {
     key: 'sales',
+    complexity: 'large',
     name: 'Sales',
     summary: 'A buyer taking a listing, and the money attached.',
     presets: ['marketplace'],
@@ -548,6 +564,7 @@ export const MODULES = [
   },
   {
     key: 'payouts',
+    complexity: 'large',
     name: 'Payouts',
     summary: 'Getting sellers their money.',
     presets: ['marketplace'],
@@ -581,6 +598,7 @@ export const MODULES = [
   },
   {
     key: 'messaging',
+    complexity: 'large',
     name: 'Messaging',
     summary: 'Buyers and sellers talking to each other.',
     presets: ['marketplace'],
@@ -616,6 +634,7 @@ export const MODULES = [
   },
   {
     key: 'ratings',
+    complexity: 'small',
     name: 'Seller ratings',
     summary: 'Buyers rating sellers after a sale.',
     presets: ['marketplace'],
@@ -644,6 +663,7 @@ export const MODULES = [
   // --------------------------------------------------------------- shared
   {
     key: 'search',
+    complexity: 'large',
     name: 'Search',
     summary: 'Querying whatever your main content is.',
     presets: ['ecommerce', 'blog', 'marketplace'],
@@ -659,6 +679,7 @@ export const MODULES = [
   },
   {
     key: 'notifications',
+    complexity: 'medium',
     name: 'Notifications',
     summary: 'Telling people something happened.',
     presets: ['ecommerce', 'saas', 'marketplace'],
@@ -684,6 +705,7 @@ export const MODULES = [
   },
   {
     key: 'admin',
+    complexity: 'medium',
     name: 'Admin',
     summary: 'Back-office views and an audit trail.',
     presets: ['ecommerce', 'saas', 'blog', 'marketplace'],

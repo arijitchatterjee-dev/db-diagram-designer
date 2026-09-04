@@ -7,6 +7,7 @@ import ProjectEditorPage from './pages/ProjectEditorPage';
 import PlanPage from './pages/PlanPage';
 import ArchitecturePage from './pages/ArchitecturePage';
 import HistoryPage from './pages/HistoryPage';
+import BudgetPage from './pages/BudgetPage';
 import ModulesPage from './pages/ModulesPage';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
@@ -36,6 +37,7 @@ export default function App() {
               element={<Navigate to=".." relative="path" replace />}
             />
             <Route path="/project/:id/architecture" element={<ArchitecturePage />} />
+            <Route path="/project/:id/budget" element={<BudgetPage />} />
             <Route path="/project/:id/history" element={<HistoryPage />} />
             <Route path="/modules" element={<ModulesPage />} />
           </Route>

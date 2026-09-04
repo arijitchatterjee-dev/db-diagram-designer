@@ -4,6 +4,7 @@ import {
   Blueprint,
   CaretDown,
   ClockCounterClockwise,
+  Coins,
   Compass,
   Cube,
   Database,
@@ -145,6 +146,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
                   <Table size={15} weight="bold" />
                 </span>
                 <span className="sidebar__hide">Schema</span>
+              </NavLink>
+              <NavLink
+                to={`/project/${open._id}/budget`}
+                className={item}
+                onClick={onCloseMobile}
+                title="Budget"
+              >
+                <span className="snav__icon">
+                  <Coins size={15} weight="bold" />
+                </span>
+                <span className="sidebar__hide">Budget</span>
               </NavLink>
               <NavLink
                 to={`/project/${open._id}/history`}

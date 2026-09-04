@@ -9,6 +9,7 @@ import {
   validateModule,
   shadowWarning,
 } from '../../engine/customModules';
+import { COMPLEXITY } from '../../engine/estimate';
 
 /**
  * The editor for a module you define yourself.
@@ -144,6 +145,27 @@ export default function ModuleEditorDialog({
                 placeholder="Refer a friend, both get credit."
               />
             </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="mod-complexity">Size</label>
+            <p className="field__hint">
+              Roughly what it takes to build, which is what the estimate reads. Left
+              unset it counts as medium.
+            </p>
+            <select
+              id="mod-complexity"
+              className="select"
+              value={draft.complexity ?? ''}
+              onChange={(e) => update({ complexity: e.target.value })}
+            >
+              <option value="">Unset (medium)</option>
+              {COMPLEXITY.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label} — about {level.days} {level.days === 1 ? 'day' : 'days'}
+                </option>
+              ))}
+            </select>
           </div>
 
           {shadows && (

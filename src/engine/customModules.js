@@ -78,6 +78,9 @@ export function blankModule(key = '') {
     dbml: '',
     apis: [],
     dependsOn: [],
+    // Empty rather than a level: unset means "use the default" rather than
+    // claiming a size nobody chose.
+    complexity: '',
     blueprintKey: '',
     libraryKey: '',
   };
