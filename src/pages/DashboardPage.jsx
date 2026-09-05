@@ -17,6 +17,7 @@ import * as projectApi from '../api/projectApi';
 import { apiErrorMessage } from '../api/axiosInstance';
 import { absoluteTime, relativeTime } from '../utils/formatTime';
 import { useProjectsStore } from '../store/useProjectsStore';
+import TableBtn from '../components/common/TableBtn';
 
 const PLAN_STATUS_LABEL = {
   draft: 'Draft',
@@ -304,6 +305,7 @@ export default function DashboardPage() {
         {visible.length > 0 && (
           <div className="ptray">
             <ul className="plist">
+              <TableBtn/>
               {visible.map((project, i) => (
                 <li
                   key={project._id}
@@ -347,10 +349,13 @@ export default function DashboardPage() {
                   </time>
 
                   <span className="prow__actions">
-                    <Link to={`/project/${project._id}/plan`} className="prow__plan">
-                      <Compass size={13} weight="bold" />
+                    <TableBtn
+                      to={`/project/${project._id}/plan`}
+                      icon={<Compass size={13} weight="bold" />}
+                      title={project.hasPlan ? `Open the plan for ${project.name}` : `Plan ${project.name}`}
+                    >
                       {project.hasPlan ? 'Plan' : 'Plan it'}
-                    </Link>
+                    </TableBtn>
 
                     <CardMenu
                       label={project.name}

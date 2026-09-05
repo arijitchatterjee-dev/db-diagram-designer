@@ -12,6 +12,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import PageHeader from '../components/layout/PageHeader';
+import TableBtn from '../components/common/TableBtn';
 import ModuleEditorDialog from '../components/plan/ModuleEditorDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import {
@@ -23,6 +24,14 @@ import {
 import { MODULES } from '../engine/modules';
 import * as moduleApi from '../api/moduleApi';
 import { apiErrorMessage } from '../api/axiosInstance';
+
+/**
+ * Nothing on this page is selected into a plan, so no module owns a table here
+ * and the clash warning has nothing to report. It still has to be a Map: the
+ * editor reads it with `.get()`, and a plain `{}` throws the moment a table
+ * parses. Hoisted so it is one stable value rather than a new one per render.
+ */
+const EMPTY_OWNERS = new Map();
 
 /**
  * The module library, on its own page.
@@ -238,15 +247,13 @@ export default function ModulesPage() {
                   <code className="prow__key">{module.key}</code>
 
                   <span className="prow__actions">
-                    <button
-                      type="button"
-                      className="prow__plan"
+                    <TableBtn
+                      icon={<PencilSimple size={13} weight="bold" />}
                       onClick={() => startEdit(module)}
-                      title="Edit"
+                      title={`Edit ${module.name}`}
                     >
-                      <PencilSimple size={13} weight="bold" />
                       Edit
-                    </button>
+                    </TableBtn>
                     <button
                       type="button"
                       className="card__menu-trigger"
@@ -269,7 +276,7 @@ export default function ModulesPage() {
           isNew={editing.isNew}
           planModuleKeys={[]}
           planCustomModules={hydrated.filter((m) => m.key !== editing.module.key)}
-          tableOwners={{}}
+          tableOwners={EMPTY_OWNERS}
           savingToLibrary={saving}
           onSave={handleSave}
           onCancel={() => setEditing(null)}

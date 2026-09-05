@@ -34,8 +34,18 @@ export default function ApiTable({ apis, stale, onChange, onAdd, onRemove, onRed
           </p>
         )}
 
+        {/*
+          Keyed by position, not by content. An endpoint has no id of its own,
+          and a key built from `method`/`path` changes on every keystroke — React
+          then treats the row as a different element, unmounts it, and the input
+          you are typing into is destroyed and rebuilt, losing focus after one
+          character. Position is stable while editing, which is what matters
+          here: rows are only ever appended or removed, never reordered, and
+          every field is controlled by the parent, so there is no row-local state
+          to end up attached to the wrong endpoint.
+        */}
         {apis.map((api, index) => (
-          <div className="apis__row" key={`${api.method}-${api.path}-${index}`}>
+          <div className="apis__row" key={index}>
             <select
               className="select select--inline"
               value={api.method}

@@ -12,6 +12,7 @@ import {
   SidebarSimple,
   SignOut,
   SquaresFour,
+  Stack,
   Table,
   X,
 } from '@phosphor-icons/react';
@@ -115,6 +116,13 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile
               <Cube size={15} weight="bold" />
             </span>
             <span className="sidebar__hide">Modules</span>
+          </NavLink>
+
+          <NavLink to="/templates" className={item} onClick={onCloseMobile} title="Templates">
+            <span className="snav__icon">
+              <Stack size={15} weight="bold" />
+            </span>
+            <span className="sidebar__hide">Templates</span>
           </NavLink>
 
           {open && (

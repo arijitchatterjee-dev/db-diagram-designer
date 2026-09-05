@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/engine/engine.test.mjs && node src/engine/architecture.test.mjs && node src/engine/decisions.test.mjs && node src/engine/custom.test.mjs && node src/engine/generate.test.mjs && node src/engine/spec.test.mjs && node src/utils/pipeline.test.mjs && node src/utils/completion.test.mjs && node src/utils/export.test.mjs && node src/engine/estimate.test.js"
+    "test": "node src/engine/engine.test.mjs && node src/engine/architecture.test.mjs && node src/engine/decisions.test.mjs && node src/engine/custom.test.mjs && node src/engine/generate.test.mjs && node src/engine/spec.test.mjs && node src/engine/templates.test.mjs && node src/utils/pipeline.test.mjs && node src/utils/completion.test.mjs && node src/utils/export.test.mjs && node src/engine/estimate.test.js"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -17,8 +17,8 @@
     "@codemirror/view": "^6.28.0",
     "@dbml/core": "^3.9.5",
     "@fontsource-variable/geist": "^5.3.0",
-    "@lezer/highlight": "^1.2.3",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@lezer/highlight": "^1.2.3",
     "@phosphor-icons/react": "^2.1.10",
     "@uiw/react-codemirror": "^4.23.0",
     "axios": "^1.7.2",
@@ -27,6 +27,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.24.1",
     "reactflow": "^11.11.4",
+    "styled-components": "^6.5.3",
     "zustand": "^4.5.4"
   },
   "devDependencies": {

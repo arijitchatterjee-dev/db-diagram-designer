@@ -12,6 +12,7 @@ import './styles/plan.css';
 import './styles/chat.css';
 import './styles/history.css';
 import './styles/modules.css';
+import './styles/templates.css';
 import './styles/print.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(

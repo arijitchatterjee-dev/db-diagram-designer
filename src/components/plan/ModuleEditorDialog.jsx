@@ -79,8 +79,12 @@ export default function ModuleEditorDialog({
 
   // A table another selected module already owns. `entitiesFor` keeps the first
   // silently, so saying it here is the only useful moment.
+  //
+  // The Map check is not defensive noise: this runs for the first time the
+  // instant a table parses, which is mid-typing, and anything but a Map used to
+  // throw there and take the whole page down with it.
   const clashes = useMemo(() => {
-    if (!tableOwners) return [];
+    if (!(tableOwners instanceof Map)) return [];
     return entities
       .map((entity) => {
         const owners = (tableOwners.get(entity.name) ?? []).filter((key) => key !== draft.key);
